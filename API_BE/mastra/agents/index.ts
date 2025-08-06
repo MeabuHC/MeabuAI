@@ -1,0 +1,52 @@
+import { groq } from '@ai-sdk/groq';
+import { Agent } from '@mastra/core/agent';
+import { fastembed } from '@mastra/fastembed';
+import { Memory } from '@mastra/memory';
+import { PgVector, PostgresConfig, PostgresStore } from '@mastra/pg';
+import { config } from 'dotenv';
+import { join } from 'path';
+
+// Try loading .env from multiple possible locations
+config({ path: join(__dirname, '../../.env') });
+config({ path: join(process.cwd(), '.env') });
+config(); // fallback to default behavior
+
+// Initialize memory with PostgreSQL storage and vector search
+
+const host: string = process.env.DATABASE_HOST as string;
+const port: number = parseInt(process.env.DATABASE_PORT as string);
+const user: string = process.env.DATABASE_USER as string;
+const password: string = process.env.DATABASE_PASSWORD as string;
+const database: string = process.env.DATABASE_NAME as string;
+
+const memory = new Memory({
+  storage: new PostgresStore({
+    host,
+    port,
+    user,
+    password,
+    database,
+    ssl: true,
+  }),
+  vector: new PgVector({
+    connectionString: process.env.DATABASE_URL as string,
+  }),
+  options: {
+    threads: {
+      generateTitle: true,
+    },
+    lastMessages: 15,
+    semanticRecall: {
+      topK: 3,
+      messageRange: 2,
+    },
+  },
+  embedder: fastembed,
+});
+
+export const myAgent = new Agent({
+  name: 'My Personal Assistant',
+  instructions: 'You are a helpful assistant.',
+  model: groq('llama-3.3-70b-versatile'),
+  memory: memory,
+});
