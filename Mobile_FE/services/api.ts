@@ -14,6 +14,13 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
     async (config: InternalAxiosRequestConfig) => {
         const token = await secureStorage.getToken();
+
+        // Only log if we haven't logged for this request
+        if (!config._tokenLogged) {
+            console.log('🔑 Token being sent for:', config.url, token ? `${token.substring(0, 20)}...` : 'No token');
+            config._tokenLogged = true;
+        }
+
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }

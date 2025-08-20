@@ -2,14 +2,7 @@ import { groq } from '@ai-sdk/groq';
 import { Agent } from '@mastra/core/agent';
 import { fastembed } from '@mastra/fastembed';
 import { Memory } from '@mastra/memory';
-import { PgVector, PostgresConfig, PostgresStore } from '@mastra/pg';
-import { config } from 'dotenv';
-import { join } from 'path';
-
-// Try loading .env from multiple possible locations
-config({ path: join(__dirname, '../../.env') });
-config({ path: join(process.cwd(), '.env') });
-config(); // fallback to default behavior
+import { PgVector, PostgresStore } from '@mastra/pg';
 
 // Initialize memory with PostgreSQL storage and vector search
 
@@ -19,7 +12,7 @@ const user: string = process.env.DATABASE_USER as string;
 const password: string = process.env.DATABASE_PASSWORD as string;
 const database: string = process.env.DATABASE_NAME as string;
 
-const memory = new Memory({
+export const memory = new Memory({
   storage: new PostgresStore({
     host,
     port,

@@ -8,52 +8,40 @@ import { store } from "./store";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { restoreAuthState } from "./store/slices/authSlice";
 
-import ChatScreen from "./screens/ChatScreen";
+import LoadingScreen from "./components/LoadingScreen";
+import DrawerNavigator from "./navigation/DrawerNavigator";
 import LoginScreen from "./screens/LoginScreen";
-import type { RootStackParamList } from "./types/navigation";
+import { RootStackParamList } from "./types/navigation";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-function AuthStack() {
-  return (
-    <Stack.Navigator
-      initialRouteName="Login"
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="Login" component={LoginScreen} />
-    </Stack.Navigator>
-  );
-}
-
-function AppStack() {
-  return (
-    <Stack.Navigator
-      initialRouteName="Chat"
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="Chat" component={ChatScreen} />
-    </Stack.Navigator>
-  );
-}
 
 // Main navigation component
 function MainNavigator() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(restoreAuthState());
   }, [dispatch]);
 
+  // Show loading screen while checking authentication state
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <NavigationContainer>
-      <AppStack />
-      {/* Temporarily disabled auth check */}
-      {/* {isAuthenticated ? <AppStack /> : <AuthStack />} */}
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        {isAuthenticated ? (
+          <Stack.Screen name="Drawer" component={DrawerNavigator} />
+        ) : (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        )}
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }

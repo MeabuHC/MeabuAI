@@ -1,4 +1,11 @@
 export type RootStackParamList = {
     Login: undefined;
-    Chat: undefined;
+    Drawer: {
+        screen?: keyof DrawerParamList;
+        params?: any;
+    };
+};
+
+export type DrawerParamList = {
+    Chat: { conversationId?: string };
 }; 

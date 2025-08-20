@@ -48,7 +48,16 @@ export const loginUser = createAsyncThunk(
     async (credentials: LoginCredentials, { rejectWithValue }) => {
         try {
             const response = await api.post('/auth/login', credentials);
-            return response.data as AuthResponse;
+            const authData = response.data as AuthResponse;
+
+            // Store tokens immediately after successful login
+            await secureStorage.setToken(authData.access_token);
+            if (authData.refresh_token) {
+                await secureStorage.setRefreshToken(authData.refresh_token);
+            }
+            await secureStorage.setUser(authData.user);
+
+            return authData;
         } catch (error: any) {
             const message = error.response?.data?.message || error.message || 'Login failed';
             return rejectWithValue(message);
@@ -61,7 +70,16 @@ export const registerUser = createAsyncThunk(
     async (credentials: RegisterCredentials, { rejectWithValue }) => {
         try {
             const response = await api.post('/auth/register', credentials);
-            return response.data as AuthResponse;
+            const authData = response.data as AuthResponse;
+
+            // Store tokens immediately after successful registration
+            await secureStorage.setToken(authData.access_token);
+            if (authData.refresh_token) {
+                await secureStorage.setRefreshToken(authData.refresh_token);
+            }
+            await secureStorage.setUser(authData.user);
+
+            return authData;
         } catch (error: any) {
             const message = error.response?.data?.message || error.message || 'Registration failed';
             return rejectWithValue(message);
@@ -80,7 +98,15 @@ export const refreshToken = createAsyncThunk(
             }
 
             const response = await api.post('/auth/refresh', { refresh_token: refreshToken });
-            return response.data as { token: string; refreshToken?: string };
+            const tokenData = response.data as { access_token: string; refresh_token?: string };
+
+            // Store new tokens immediately after successful refresh
+            await secureStorage.setToken(tokenData.access_token);
+            if (tokenData.refresh_token) {
+                await secureStorage.setRefreshToken(tokenData.refresh_token);
+            }
+
+            return tokenData;
         } catch (error: any) {
             const message = error.response?.data?.message || error.message || 'Token refresh failed';
             return rejectWithValue(message);
@@ -103,14 +129,14 @@ export const authSlice = createSlice({
             state.error = null;
         },
         setCredentials: (state, action: PayloadAction<AuthResponse>) => {
-            const { user, token, refreshToken } = action.payload;
+            const { user, access_token, refresh_token } = action.payload;
             state.user = user;
             state.isAuthenticated = true;
             state.error = null;
             // Store tokens securely
-            secureStorage.setToken(token);
-            if (refreshToken) {
-                secureStorage.setRefreshToken(refreshToken);
+            secureStorage.setToken(access_token);
+            if (refresh_token) {
+                secureStorage.setRefreshToken(refresh_token);
             }
             secureStorage.setUser(user);
         },
@@ -148,13 +174,7 @@ export const authSlice = createSlice({
                 state.user = action.payload.user;
                 state.isAuthenticated = true;
                 state.error = null;
-
-                // Store tokens securely
-                secureStorage.setToken(action.payload.token);
-                if (action.payload.refreshToken) {
-                    secureStorage.setRefreshToken(action.payload.refreshToken);
-                }
-                secureStorage.setUser(action.payload.user);
+                // Tokens are now stored in the thunk
             })
             .addCase(loginUser.rejected, (state, action) => {
                 state.isLoading = false;
@@ -171,12 +191,7 @@ export const authSlice = createSlice({
                 state.user = action.payload.user;
                 state.isAuthenticated = true;
                 state.error = null;
-                // Store tokens securely
-                secureStorage.setToken(action.payload.token);
-                if (action.payload.refreshToken) {
-                    secureStorage.setRefreshToken(action.payload.refreshToken);
-                }
-                secureStorage.setUser(action.payload.user);
+                // Tokens are now stored in the thunk
             })
             .addCase(registerUser.rejected, (state, action) => {
                 state.isLoading = false;
@@ -190,11 +205,7 @@ export const authSlice = createSlice({
             .addCase(refreshToken.fulfilled, (state, action) => {
                 state.isLoading = false;
                 state.error = null;
-                // Update tokens securely
-                secureStorage.setToken(action.payload.token);
-                if (action.payload.refreshToken) {
-                    secureStorage.setRefreshToken(action.payload.refreshToken);
-                }
+                // Tokens are now stored in the thunk
             })
             .addCase(refreshToken.rejected, (state, action) => {
                 state.isLoading = false;

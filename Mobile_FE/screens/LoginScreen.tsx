@@ -47,7 +47,7 @@ export default function LoginScreen() {
 
     try {
       await dispatch(loginUser(credentials)).unwrap();
-      Alert.alert("Success", "Login successful!");
+      // Navigation will happen automatically due to isAuthenticated state change
     } catch (error) {
       Alert.alert("Login Error", error as string);
     }
