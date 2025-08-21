@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useRef, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { Platform, TouchableOpacity, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import CheckIcon from "../assets/svg/check.svg";
 import CopyIcon from "../assets/svg/copy.svg";
@@ -11,6 +11,7 @@ import SoundIcon from "../assets/svg/sound.svg";
 import UploadIcon from "../assets/svg/upload.svg";
 import { useAppSelector } from "../store/hooks";
 import { AIMessageProps } from "../types/components";
+import CodeBlock from "./CodeBlock";
 
 const AIMessage: React.FC<AIMessageProps> = ({
   message,
@@ -18,7 +19,6 @@ const AIMessage: React.FC<AIMessageProps> = ({
   copyResetDuration = 3000,
 }) => {
   const { theme } = useAppSelector((state) => state.theme);
-  const isDark = theme === "dark";
   const [isCopied, setIsCopied] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -57,21 +57,54 @@ const AIMessage: React.FC<AIMessageProps> = ({
   }, [isCopied, copyResetDuration]);
 
   return (
-    <View className="items-center py-2 px-5 mr-4 flex-col gap-1">
+    <View className="items-center py-2 px-5 flex-col gap-1">
       <Markdown
         style={{
           text: {
             fontSize: 18,
             lineHeight: 28,
             color: "#000",
-            fontFamily: "sans-serif",
+            fontFamily: Platform.select({
+              ios: "System",
+              android: "sans-serif",
+              default: "System",
+            }),
           },
           code_inline: {
-            backgroundColor: "#ECECEC",
+            backgroundColor: "transparent",
             color: "#0D0D0D",
             borderRadius: 3,
             fontSize: 18,
-            fontFamily: "monospace",
+            fontFamily: Platform.select({
+              ios: "Menlo",
+              android: "monospace",
+              default: "monospace",
+            }),
+            fontStyle: "italic",
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+          },
+          fence: {
+            fontSize: 14,
+            backgroundColor: "#f6f8fa",
+            padding: 0,
+            borderRadius: 6,
+            marginVertical: 8,
+          },
+        }}
+        rules={{
+          fence: (node, children, parent, styles) => {
+            const language = node.sourceInfo?.params || "text";
+            const codeContent = node.content;
+
+            return (
+              <CodeBlock
+                key={node.key}
+                language={language}
+                content={codeContent}
+                nodeKey={node.key}
+              />
+            );
           },
         }}
       >

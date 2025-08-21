@@ -30,7 +30,7 @@ export class PublicStreamRequestDto {
 
   @ApiProperty({
     description: 'Unique identifier for the user/resource',
-    example: 'user_12345',
+    example: 'aadf8677-a1c5-44bf-9be0-1be14ac90545',
   })
   @IsString()
   @IsNotEmpty()
