@@ -167,8 +167,6 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
             contentContainerStyle: {
               paddingHorizontal: 12,
               paddingTop: 12,
-              flexGrow: 0,
-              flexShrink: 0,
             },
             style: {
               flexGrow: 0,

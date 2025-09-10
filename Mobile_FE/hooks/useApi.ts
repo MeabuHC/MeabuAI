@@ -1,24 +1,26 @@
 import { useCallback, useState } from 'react';
 
-interface UseApiReturn<T> {
+interface UseApiReturn<T, TParams extends any[] = []> {
   data: T | null;
-  setData: (data: T) => void;
+  setData: (data: T | ((prev: T | null) => T)) => void;
   isLoading: boolean;
   error: string | null;
-  execute: () => Promise<void>;
+  execute: (...params: TParams) => Promise<void>;
   reset: () => void;
 }
 
-export const useApi = <T>(apiCall: () => Promise<T>): UseApiReturn<T> => {
+export const useApi = <T, TParams extends any[] = []>(
+  apiCall: (...params: TParams) => Promise<T>
+): UseApiReturn<T, TParams> => {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const execute = useCallback(async () => {
+  const execute = useCallback(async (...params: TParams) => {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await apiCall();
+      const result = await apiCall(...params);
       setData(result);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Request failed');
@@ -33,5 +35,13 @@ export const useApi = <T>(apiCall: () => Promise<T>): UseApiReturn<T> => {
     setIsLoading(false);
   }, []);
 
-  return { data, setData, isLoading, error, execute, reset };
+  const setDataWrapper = useCallback((value: T | ((prev: T | null) => T)) => {
+    if (typeof value === 'function') {
+      setData((prev) => (value as (prev: T | null) => T)(prev));
+    } else {
+      setData(value);
+    }
+  }, []);
+
+  return { data, setData: setDataWrapper, isLoading, error, execute, reset };
 };

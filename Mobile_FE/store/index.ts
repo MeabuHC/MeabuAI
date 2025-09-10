@@ -1,11 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authSlice from './slices/authSlice';
+import conversationsSlice from './slices/conversationsSlice';
+import messagesSlice from './slices/messagesSlice';
 import themeSlice from './slices/themeSlice';
 
 export const store = configureStore({
     reducer: {
         theme: themeSlice,
         auth: authSlice,
+        conversations: conversationsSlice,
+        messages: messagesSlice,
     },
 });
 

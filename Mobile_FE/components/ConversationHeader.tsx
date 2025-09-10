@@ -8,10 +8,12 @@ import NewChatIcon from "../assets/svg/new-chat.svg";
 import StarIcon from "../assets/svg/star.svg";
 import TemporaryChatActivateIcon from "../assets/svg/temporary-chat-activate.svg";
 import TemporaryChatIcon from "../assets/svg/temporary-chat.svg";
-import { ChatHeaderProps } from "../types/components";
+import { ConversationHeaderProps } from "../types/components";
 import { DrawerParamList } from "../types/drawer";
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ conversationId }) => {
+const ConversationHeader: React.FC<ConversationHeaderProps> = ({
+  conversationId,
+}) => {
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   const [isTemporaryChatActive, setIsTemporaryChatActive] = useState(false);
 
@@ -73,7 +75,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ conversationId }) => {
 
       <View className="flex-row items-center gap-6">
         {/* Right - New Chat Icon */}
-        <TouchableOpacity onPress={() => navigation.navigate("Chat", {})}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Conversation", {})}
+        >
           <NewChatIcon width={22} height={22} />
         </TouchableOpacity>
 
@@ -86,4 +90,4 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ conversationId }) => {
   );
 };
 
-export default ChatHeader;
+export default ConversationHeader;

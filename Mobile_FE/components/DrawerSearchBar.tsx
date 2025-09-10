@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DrawerSearchBarProps } from "../types/components";
 
 const DrawerSearchBar: React.FC<DrawerSearchBarProps> = ({
-  onNewChatPress,
+  onNewConversationPress,
   onSearch,
 }) => {
   const { theme } = useAppSelector((state) => state.theme);
@@ -73,8 +73,8 @@ const DrawerSearchBar: React.FC<DrawerSearchBarProps> = ({
           selectionColor={isDark ? "#fff" : "#222"}
         />
       </View>
-      {/* Right - New Chat Icon */}
-      <TouchableOpacity onPress={onNewChatPress}>
+      {/* Right - New Conversation Icon */}
+      <TouchableOpacity onPress={onNewConversationPress}>
         <NewChatIcon width={24} height={24} />
       </TouchableOpacity>
     </View>

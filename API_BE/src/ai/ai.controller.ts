@@ -44,7 +44,18 @@ export class AiController {
   @ApiOperation({
     summary: 'Stream AI response (Authenticated)',
     description:
-      'Streams AI response for a given message in a conversation thread. Requires authentication.',
+      'Streams AI response for a given message in a conversation thread. If no threadId is provided, a new thread will be created automatically. The threadId is returned in the X-Thread-Id header. Requires authentication.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'AI response streamed successfully',
+    headers: {
+      'X-Thread-Id': {
+        description:
+          'The thread ID used for this conversation (generated if not provided)',
+        schema: { type: 'string' },
+      },
+    },
   })
   @ApiBody({ type: StreamRequestDto })
   async stream(
@@ -53,14 +64,32 @@ export class AiController {
     @Req() req: RequestWithUser,
   ) {
     const { threadId, message } = body;
-    await this.aiService.stream(threadId, req.user.id, message, res);
+    const result = await this.aiService.stream(
+      threadId,
+      req.user.id,
+      message,
+      res,
+    );
+    // Note: The threadId is also available in the X-Thread-Id response header
+    return result;
   }
 
   @Post('/stream/public')
   @ApiOperation({
     summary: 'Stream AI response (Public)',
     description:
-      'Streams AI response for a given message. No authentication required. You can configure both threadId and resourceId.',
+      'Streams AI response for a given message. No authentication required. You can configure both threadId and resourceId. If no threadId is provided, a new thread will be created automatically. The threadId is returned in the X-Thread-Id header.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'AI response streamed successfully',
+    headers: {
+      'X-Thread-Id': {
+        description:
+          'The thread ID used for this conversation (generated if not provided)',
+        schema: { type: 'string' },
+      },
+    },
   })
   @ApiBody({ type: PublicStreamRequestDto })
   async streamPublic(
@@ -68,7 +97,14 @@ export class AiController {
     @Res() res: Response,
   ) {
     const { threadId, resourceId, message } = body;
-    await this.aiService.stream(threadId, resourceId, message, res);
+    const result = await this.aiService.stream(
+      threadId,
+      resourceId,
+      message,
+      res,
+    );
+    // Note: The threadId is also available in the X-Thread-Id response header
+    return result;
   }
 
   @Get('/resources/me/threads')

@@ -1,13 +1,13 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { TextInput, TouchableOpacity, View } from "react-native";
 import MicroIcon from "../assets/svg/micro.svg";
 import MusicIcon from "../assets/svg/music.svg";
 import PlusIcon from "../assets/svg/plus.svg";
 
-import { ChatInputProps } from "../types/components";
+import { Ionicons } from "@expo/vector-icons";
+import { ConversationInputProps } from "../types/components";
 
-const ChatInput: React.FC<ChatInputProps> = ({
+const ConversationInput: React.FC<ConversationInputProps> = ({
   text,
   onTextChange,
   onSend,
@@ -30,26 +30,24 @@ const ChatInput: React.FC<ChatInputProps> = ({
       </TouchableOpacity>
 
       <View
-        className={`flex-1 bg-[#F3F3F3] flex-row items-center ${
+        className={`flex-1 bg-[#F3F3F3] flex-row items-center relative ${
           isWrapped ? "rounded-[20px]" : "rounded-full"
         }`}
+        style={{ maxHeight: 150 }}
       >
         <TextInput
           placeholder="Ask anything"
-          className="flex-1 text-xl py-4 px-5 font-normal"
+          className="text-xl py-4 px-5 font-normal flex-1"
           value={text}
           onChangeText={onTextChange}
           multiline={true}
-          style={{
-            textAlignVertical: "center",
-            maxHeight: 150,
-          }}
+          scrollEnabled={true} // let TextInput scroll itself
+          style={{ textAlignVertical: "center", minHeight: 50, maxHeight: 150 }}
           onContentSizeChange={handleContentSizeChange}
         />
         {!text.trim() && (
           <TouchableOpacity
             className="p-2 mr-2 mt-auto mb-2"
-            activeOpacity={0.5}
             onPress={() => {}}
           >
             <MicroIcon width={25} height={25} />
@@ -57,7 +55,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
         )}
         <TouchableOpacity
           className="bg-[#000000] rounded-full p-2 mr-2 mt-auto mb-2"
-          activeOpacity={0.5}
           onPress={text.trim() ? onSend : undefined}
         >
           {text.trim() ? (
@@ -71,4 +68,4 @@ const ChatInput: React.FC<ChatInputProps> = ({
   );
 };
 
-export default ChatInput;
+export default ConversationInput;

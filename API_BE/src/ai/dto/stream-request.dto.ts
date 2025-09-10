@@ -1,14 +1,16 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class StreamRequestDto {
   @ApiProperty({
-    description: 'Unique identifier for the conversation thread',
+    description:
+      'Unique identifier for the conversation thread (optional - will be generated if not provided)',
     example: 'thread_12345',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  threadId: string;
+  @IsOptional()
+  threadId?: string;
 
   @ApiProperty({
     description: 'The message content to send to the AI',
@@ -21,12 +23,14 @@ export class StreamRequestDto {
 
 export class PublicStreamRequestDto {
   @ApiProperty({
-    description: 'Unique identifier for the conversation thread',
+    description:
+      'Unique identifier for the conversation thread (optional - will be generated if not provided)',
     example: 'thread_12345',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  threadId: string;
+  @IsOptional()
+  threadId?: string;
 
   @ApiProperty({
     description: 'Unique identifier for the user/resource',

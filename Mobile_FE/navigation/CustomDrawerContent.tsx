@@ -2,45 +2,61 @@ import { DrawerContentScrollView } from "@react-navigation/drawer";
 import { useNavigationState } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GptsIcon from "../assets/svg/gpts.svg";
 import LibraryIcon from "../assets/svg/library.svg";
 import LogoIcon from "../assets/svg/logo.svg";
 import ConversationList from "../components/ConversationList";
 import DrawerSearchBar from "../components/DrawerSearchBar";
-import { useAppSelector } from "../store/hooks";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { fetchConversations } from "../store/slices/conversationsSlice";
 import { CustomDrawerContentProps } from "../types/components";
 
 const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
   const insets = useSafeAreaInsets();
   const navigationState = useNavigationState((state) => state);
+  const dispatch = useAppDispatch();
   const [searchText, setSearchText] = useState("");
   const [pressedId, setPressedId] = useState<string | null>(null);
 
   const { theme } = useAppSelector((state) => state.theme);
   const isDark = theme === "dark";
+  const { isLoading } = useAppSelector((state) => state.conversations);
 
   // Get current conversation ID from navigation state
-  const currentConversationId = navigationState?.routes?.find(
-    (route) => route.name === "Chat"
-  )?.params as { conversationId: string } | undefined;
+  const currentConversationParams = navigationState?.routes?.find(
+    (route) => route.name === "Conversation"
+  )?.params as { conversationId?: string; localId?: string } | undefined;
 
-  const handleNewChatPress = () => {
-    props.navigation.navigate("Drawer", { screen: "Chat" });
+  const handleNewConversationPress = () => {
+    props.navigation.navigate("Drawer", { screen: "Conversation" });
+  };
+
+  const handleRefresh = async () => {
+    await dispatch(fetchConversations());
   };
 
   return (
     <View className={`flex-1 ${isDark ? "bg-gray-900" : "bg-white"}`}>
       {/* Search Bar */}
       <DrawerSearchBar
-        onNewChatPress={handleNewChatPress}
+        onNewConversationPress={handleNewConversationPress}
         onSearch={setSearchText}
       />
 
       <DrawerContentScrollView
         {...props}
         contentContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={handleRefresh}
+            tintColor="#D3D3D3"
+            colors={["#D3D3D3"]}
+            progressBackgroundColor="#F5F5F5"
+          />
+        }
       >
         <View style={{ marginBottom: 30, paddingHorizontal: 4 }}>
           <Pressable
@@ -49,12 +65,13 @@ const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
               backgroundColor:
                 pressedId === "meabuai"
                   ? "#F6F6F6"
-                  : !currentConversationId?.conversationId
+                  : !currentConversationParams?.conversationId &&
+                    !currentConversationParams?.localId
                   ? "#F6F6F6"
                   : "transparent",
             }}
             onPress={() =>
-              props.navigation.navigate("Drawer", { screen: "Chat" })
+              props.navigation.navigate("Drawer", { screen: "Conversation" })
             }
             onPressIn={() => setPressedId("meabuai")}
             onPressOut={() => setPressedId(null)}
@@ -87,7 +104,7 @@ const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
           </Pressable>
         </View>
         <ConversationList
-          currentConversationId={currentConversationId?.conversationId}
+          currentLocalId={currentConversationParams?.localId}
           searchText={searchText}
         />
       </DrawerContentScrollView>

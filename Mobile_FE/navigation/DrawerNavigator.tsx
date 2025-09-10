@@ -1,14 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import React from "react";
-import ChatScreen from "../screens/ChatScreen";
+import ConversationScreen from "../screens/ConversationScreen";
 import { DrawerParamList } from "../types/drawer";
 import CustomDrawerContent from "./CustomDrawerContent";
 
-// Wrapper component to force remount when conversationId changes
-const ChatScreenWrapper = ({ route }: any) => {
+// Wrapper component to force remount when localId or conversationId changes
+const ConversationScreenWrapper = ({ route }: any) => {
+  const localId = route.params?.localId;
   const conversationId = route.params?.conversationId;
-  return <ChatScreen key={conversationId || "new-chat"} route={route} />;
+  // Use localId as primary key, fallback to conversationId for backwards compatibility
+  const key = localId || conversationId || "new-conversation";
+  return <ConversationScreen key={key} route={route} />;
 };
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
@@ -28,12 +31,12 @@ const DrawerNavigator = () => {
         drawerInactiveTintColor: "#6b7280",
       }}
     >
-      {/* Chat screen */}
+      {/* Conversation screen */}
       <Drawer.Screen
-        name="Chat"
-        component={ChatScreenWrapper}
+        name="Conversation"
+        component={ConversationScreenWrapper}
         options={{
-          drawerLabel: "Chat",
+          drawerLabel: "Conversation",
           drawerIcon: ({ color, size }) => (
             <Ionicons name="chatbubble" color={color} size={size} />
           ),

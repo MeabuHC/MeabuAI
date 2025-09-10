@@ -57,7 +57,7 @@ const AIMessage: React.FC<AIMessageProps> = ({
   }, [isCopied, copyResetDuration]);
 
   return (
-    <View className="items-center py-2 px-5 flex-col gap-1">
+    <View className="items-center py-2 px-5 flex-col gap-1 mb-2">
       <Markdown
         style={{
           text: {
@@ -91,10 +91,48 @@ const AIMessage: React.FC<AIMessageProps> = ({
             borderRadius: 6,
             marginVertical: 8,
           },
+          bullet_list: {
+            marginVertical: 8,
+          },
+          bullet_list_icon: {
+            width: 6,
+            height: 6,
+            backgroundColor: "#333",
+            borderRadius: 4,
+            marginRight: 12,
+            marginTop: 11, // Centers the bullet with the text
+          },
+          bullet_list_content: {
+            flex: 1,
+            alignItems: "flex-start",
+          },
+          ordered_list: {
+            marginVertical: 8,
+          },
+          ordered_list_icon: {
+            fontSize: 16,
+            color: "#333",
+            fontWeight: "600",
+            marginRight: 8,
+            marginTop: 5,
+            minWidth: 20,
+            textAlign: "right",
+          },
+          ordered_list_content: {
+            flex: 1,
+            alignItems: "flex-start",
+          },
+          list_item: {
+            flexDirection: "row",
+            alignItems: "flex-start",
+            marginVertical: 4,
+            paddingLeft: 0,
+          },
         }}
         rules={{
           fence: (node, children, parent, styles) => {
-            const language = node.sourceInfo?.params || "text";
+            const language =
+              (node as { sourceInfo?: string }).sourceInfo || "text";
             const codeContent = node.content;
 
             return (

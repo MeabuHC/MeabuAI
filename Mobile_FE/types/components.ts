@@ -1,19 +1,21 @@
-// Chat Components
-export interface ChatHeaderProps {
+// Conversation Components
+export interface ConversationHeaderProps {
     conversationId: string;
 }
 
-export interface ChatInputProps {
+export interface ConversationInputProps {
     text: string;
     onTextChange: (text: string) => void;
     onSend: () => void;
     onAddPress: () => void;
 }
 
-export interface ChatScreenProps {
+export interface ConversationScreenProps {
     route: {
         params?: {
-            conversationId?: string;
+            conversationId?: string; // Keep for backwards compatibility, but will use localId internally
+            localId?: string; // New preferred way to identify conversations
+            initialMessageText?: string; // For new conversations with initial message text
         };
     };
 }
@@ -27,21 +29,6 @@ export interface AIMessageProps {
     message: string;
     onCopy?: () => void;
     copyResetDuration?: number;
-}
-
-// API message model
-export interface UiMessagePart {
-    type: string;
-    text?: string;
-}
-
-export interface UiMessage {
-    id: string;
-    role: 'user' | 'assistant' | 'system' | string;
-    content: string;
-    createdAt: string;
-    parts?: UiMessagePart[];
-    experimental_attachments?: any[];
 }
 
 // Notification Components
@@ -59,7 +46,7 @@ export interface ScrollToBottomButtonProps {
 
 // Drawer Components
 export interface DrawerSearchBarProps {
-    onNewChatPress?: () => void;
+    onNewConversationPress?: () => void;
     onSearch?: (searchText: string) => void;
 }
 
@@ -71,7 +58,8 @@ export interface CustomDrawerContentProps {
 
 // Conversation Components
 export interface Conversation {
-    id: string;
+    id?: string; // This is the conversationId from backend, undefined for new conversations
+    localId: string; // Always exists, generated on frontend for new conversations
     resourceId: string;
     title: string;
     metadata: any | null;
@@ -92,10 +80,13 @@ type MessagePart =
     | { type: "step-start" };
 
 export type UIMessage = {
-    id: string;
+    id?: string;
+    localId: string;
+    conversationId: string;
     role: "user" | "assistant";
     content: string;
     createdAt: string; // or Date if you parse it
     parts: MessagePart[];
     experimental_attachments: any[]; // refine later if you know the structure
+    status: "completed" | "streaming" | "error" | "cancelled" | "pending";
 }

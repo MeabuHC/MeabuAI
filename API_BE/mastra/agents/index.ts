@@ -23,6 +23,9 @@ export const memory = new Memory({
   }),
   vector: new PgVector({
     connectionString: process.env.DATABASE_URL as string,
+    pgPoolOptions: {
+      connectionTimeoutMillis: 10000,
+    },
   }),
   options: {
     threads: {

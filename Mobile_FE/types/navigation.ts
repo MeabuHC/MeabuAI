@@ -7,5 +7,9 @@ export type RootStackParamList = {
 };
 
 export type DrawerParamList = {
-    Chat: { conversationId?: string };
+    Conversation: {
+        conversationId?: string; // Keep for backwards compatibility
+        localId?: string; // New preferred way
+        initialMessageText?: string; // For new conversations with initial message text
+    };
 }; 

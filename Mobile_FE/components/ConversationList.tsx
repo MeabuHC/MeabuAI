@@ -1,83 +1,61 @@
 import { NavigationProp, useNavigation } from "@react-navigation/native";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { useApi } from "../hooks/useApi";
-import api from "../services/api";
-import { useAppSelector } from "../store/hooks";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { fetchConversations } from "../store/slices/conversationsSlice";
 import { Conversation } from "../types/components";
 import { RootStackParamList } from "../types/navigation";
 
-const mockConversations: Conversation[] = [
-  {
-    id: "12346",
-    resourceId: "SOME_USER_ID",
-    title: "Hue City Weather",
-    metadata: null,
-    createdAt: "2025-07-19T03:50:43.809Z",
-    updatedAt: "2025-07-18T20:52:06.676Z",
-  },
-  {
-    id: "123456",
-    resourceId: "SOME_USER_ID",
-    title: "Hue School Day",
-    metadata: null,
-    createdAt: "2025-07-14T09:11:46.258Z",
-    updatedAt: "2025-07-14T09:11:46.258Z",
-  },
-];
-
 interface ConversationListProps {
-  currentConversationId?: string;
+  currentLocalId?: string; // Use localId for identification
   searchText?: string;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({
-  currentConversationId,
+  currentLocalId,
   searchText = "",
 }) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const dispatch = useAppDispatch();
   const { theme } = useAppSelector((state) => state.theme);
+  const { conversations, isLoading, error } = useAppSelector(
+    (state) => state.conversations
+  );
   const isDark = theme === "dark";
   const [pressedId, setPressedId] = useState<string | null>(null);
 
-  const {
-    data: conversations,
-    isLoading,
-    error,
-    execute: fetchConversations,
-  } = useApi<Conversation[]>(() =>
-    api.get("/ai/resources/me/threads").then((res) => res.data)
-  );
-
   useEffect(() => {
-    fetchConversations();
-  }, []);
+    dispatch(fetchConversations());
+  }, [dispatch]);
 
   // Filter conversations based on search text
   const filteredConversations = (conversations || []).filter((conversation) =>
     conversation.title.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  const handleConversationPress = (conversationId: string) => {
+  const handleConversationPress = (conversation: Conversation) => {
     navigation.navigate("Drawer", {
-      screen: "Chat",
-      params: { conversationId },
+      screen: "Conversation",
+      params: {
+        localId: conversation.localId,
+        conversationId: conversation.id,
+      },
     });
   };
 
   const renderConversation = (item: Conversation) => {
-    const isActive = currentConversationId === item.id;
-    const isPressed = pressedId === item.id;
+    const isActive = currentLocalId === item.localId;
+    const isPressed = pressedId === item.localId;
 
     return (
       <Pressable
-        key={item.id}
-        onPress={() => handleConversationPress(item.id)}
+        key={item.localId}
+        onPress={() => handleConversationPress(item)}
         className="px-4 py-[8px] rounded-2xl mb-2"
         style={{
           backgroundColor: isPressed || isActive ? "#F6F6F6" : "transparent",
         }}
-        onPressIn={() => setPressedId(item.id)}
+        onPressIn={() => setPressedId(item.localId)}
         onPressOut={() => setPressedId(null)}
       >
         <Text
@@ -91,7 +69,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
     );
   };
 
-  if (isLoading) {
+  if (isLoading && !conversations?.length) {
     return (
       <View className="flex-1 justify-center items-center px-4 py-[8px]">
         <ActivityIndicator size="small" color={isDark ? "white" : "gray"} />

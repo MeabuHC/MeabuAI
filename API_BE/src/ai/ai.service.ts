@@ -2,29 +2,36 @@ import { MastraClient } from '@mastra/client-js';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import { memory, myAgent } from 'mastra/agents';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AiService {
   constructor() {}
 
   async stream(
-    threadId: string,
+    threadId: string | undefined,
     resourceId: string,
     message: string,
     res: Response,
-  ) {
+  ): Promise<{ threadId: string }> {
+    // Generate a new threadId if not provided
+    const finalThreadId = threadId || uuidv4();
+
     const stream = await myAgent.stream([{ role: 'user', content: message }], {
-      memory: { thread: threadId, resource: resourceId },
+      memory: { thread: finalThreadId, resource: resourceId },
     });
 
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('X-Thread-Id', finalThreadId);
 
     for await (const chunk of stream.textStream) {
       res.write(chunk);
     }
 
     res.end();
+
+    return { threadId: finalThreadId };
   }
 
   async getThreadsByResourceId(resourceId: string) {
