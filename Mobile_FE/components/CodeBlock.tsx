@@ -102,9 +102,9 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
           }}
         >
           {isCopied ? (
-            <CheckIcon width={14} height={14} />
+            <CheckIcon key="check" width={14} height={14} color="#374151" />
           ) : (
-            <CopyIcon width={14} height={14} />
+            <CopyIcon key="copy" width={14} height={14} color="#374151" />
           )}
           <Text
             style={{

@@ -22,7 +22,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
       <View className="flex-row items-center justify-between py-[10px] px-6 bg-white relative">
         {/* Left */}
         <TouchableOpacity onPress={() => navigation.openDrawer()}>
-          <HamburgerMenuIcon width={24} height={24} />
+          <HamburgerMenuIcon width={24} height={24} color="#000000" />
         </TouchableOpacity>
 
         {/* Middle - Absolute Center */}
@@ -49,9 +49,13 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
         >
           <View>
             {isTemporaryChatActive ? (
-              <TemporaryChatActivateIcon width={22} height={22} />
+              <TemporaryChatActivateIcon
+                key="temp-active"
+                width={22}
+                height={22}
+              />
             ) : (
-              <TemporaryChatIcon width={22} height={22} />
+              <TemporaryChatIcon key="temp-inactive" width={22} height={22} />
             )}
           </View>
         </TouchableOpacity>
@@ -64,7 +68,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
       {/* Left - Hamburger */}
       <View className="flex-row items-center gap-6">
         <TouchableOpacity onPress={() => navigation.openDrawer()}>
-          <HamburgerMenuIcon width={24} height={24} />
+          <HamburgerMenuIcon width={24} height={24} color="#000000" />
         </TouchableOpacity>
 
         {/* Center - Chat Title */}
@@ -78,12 +82,12 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
         <TouchableOpacity
           onPress={() => navigation.navigate("Conversation", {})}
         >
-          <NewChatIcon width={22} height={22} />
+          <NewChatIcon width={22} height={22} color="#000000" />
         </TouchableOpacity>
 
         {/* Right - Dots Icon */}
         <TouchableOpacity>
-          <DotsIcon width={16} height={22} />
+          <DotsIcon width={16} height={22} color="#000000" />
         </TouchableOpacity>
       </View>
     </View>

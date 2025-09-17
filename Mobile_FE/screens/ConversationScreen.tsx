@@ -1,4 +1,5 @@
 import { useApi } from "@/hooks/useApi";
+import { useStreaming } from "@/hooks/useStreaming";
 import api from "@/services/api";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { useNavigation } from "@react-navigation/native";
@@ -15,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 import AIMessage from "../components/AIMessage";
+import BreathingIndicator from "../components/BreathingIndicator";
 import ConversationHeader from "../components/ConversationHeader";
 import ConversationInput from "../components/ConversationInput";
 import Notification from "../components/Notification";
@@ -58,17 +60,11 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   });
 
   const {
-    data: streamResponse,
-    isLoading: isStreaming,
-    execute: sendStreamMessage,
-  } = useApi((messageText: string, threadId: string) =>
-    api
-      .post(`/ai/stream`, {
-        threadId: threadId,
-        message: messageText,
-      })
-      .then((res) => res.data)
-  );
+    isStreaming,
+    error: streamError,
+    streamMessage,
+    stopStreaming,
+  } = useStreaming();
 
   useEffect(() => {
     if (conversationId) {
@@ -169,8 +165,56 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       setMessages((prev) => [...(prev || []), newMessage, newResponse]);
       setText("");
 
-      // Send message to AI stream
-      sendStreamMessage(messageText, threadId);
+      // Send message to AI stream with real-time updates
+      streamMessage(
+        messageText,
+        threadId,
+        (chunk: string) => {
+          console.log("🎯 Chunk received in UI:", chunk);
+          // Update the assistant message with streaming content
+          setMessages((prev) => {
+            if (!prev) return [];
+
+            const updatedMessages = [...prev];
+            const lastMessage = updatedMessages[updatedMessages.length - 1];
+
+            if (lastMessage && lastMessage.role === "assistant") {
+              // Append chunk to existing content
+              lastMessage.content += chunk;
+              lastMessage.status = "streaming";
+
+              // Update parts array for proper rendering
+              if (lastMessage.parts.length === 0) {
+                lastMessage.parts = [
+                  { type: "text", text: lastMessage.content },
+                ];
+              } else {
+                lastMessage.parts[0] = {
+                  type: "text",
+                  text: lastMessage.content,
+                };
+              }
+            }
+
+            return updatedMessages;
+          });
+        },
+        () => {
+          // On completion, mark the message as completed
+          setMessages((prev) => {
+            if (!prev) return [];
+
+            const updatedMessages = [...prev];
+            const lastMessage = updatedMessages[updatedMessages.length - 1];
+
+            if (lastMessage && lastMessage.role === "assistant") {
+              lastMessage.status = "completed";
+            }
+
+            return updatedMessages;
+          });
+        }
+      );
 
       Keyboard.dismiss();
 
@@ -242,19 +286,30 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
           {(conversationId || localConversationId) && (
             <FlatList
               ref={flatListRef}
-              className="flex-1 pt-6"
+              className="pt-6"
               data={messages || []}
               onScroll={handleScroll}
               onScrollBeginDrag={() => Keyboard.dismiss()}
               scrollEventThrottle={16}
+              onContentSizeChange={() => {
+                // Auto-scroll when content changes (for new messages)
+                if (messages && messages.length > 0) {
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                  }, 100);
+                }
+              }}
               renderItem={({ item }: { item: UIMessage }) =>
                 item.role === "user" ? (
                   <UserMessage message={item.content} />
+                ) : item.status === "pending" ? (
+                  <BreathingIndicator />
                 ) : (
                   <AIMessage
                     message={item.content}
                     onCopy={handleCopy}
                     copyResetDuration={NOTIFICATION_DURATION}
+                    isStreaming={item.status === "streaming"}
                   />
                 )
               }

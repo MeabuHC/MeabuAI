@@ -1,22 +1,17 @@
 import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useRef, useState } from "react";
-import { Platform, TouchableOpacity, View } from "react-native";
+import { Platform, View } from "react-native";
 import Markdown from "react-native-markdown-display";
-import CheckIcon from "../assets/svg/check.svg";
-import CopyIcon from "../assets/svg/copy.svg";
-import DislikeIcon from "../assets/svg/dislike.svg";
-import LikeIcon from "../assets/svg/like.svg";
-import RefreshIcon from "../assets/svg/refresh.svg";
-import SoundIcon from "../assets/svg/sound.svg";
-import UploadIcon from "../assets/svg/upload.svg";
 import { useAppSelector } from "../store/hooks";
 import { AIMessageProps } from "../types/components";
+import AnimatedToolbar from "./AnimatedToolbar";
 import CodeBlock from "./CodeBlock";
 
 const AIMessage: React.FC<AIMessageProps> = ({
   message,
   onCopy,
   copyResetDuration = 3000,
+  isStreaming = false,
 }) => {
   const { theme } = useAppSelector((state) => state.theme);
   const [isCopied, setIsCopied] = useState(false);
@@ -57,7 +52,7 @@ const AIMessage: React.FC<AIMessageProps> = ({
   }, [isCopied, copyResetDuration]);
 
   return (
-    <View className="items-center py-2 px-5 flex-col gap-1 mb-2">
+    <View className="items-start py-2 px-5 flex-col gap-1 mb-2">
       <Markdown
         style={{
           text: {
@@ -148,45 +143,13 @@ const AIMessage: React.FC<AIMessageProps> = ({
       >
         {message}
       </Markdown>
-      <View className="flex-row items-center gap-4 mr-auto">
-        <TouchableOpacity
-          onPress={handleCopy}
-          activeOpacity={isCopied ? 1 : 0.7}
-          disabled={isCopied}
-          className="p-2"
-        >
-          {isCopied ? (
-            <CheckIcon width={16} height={16} />
-          ) : (
-            <CopyIcon width={16} height={16} />
-          )}
-        </TouchableOpacity>
-        <View style={{ opacity: 0.7 }}>
-          <TouchableOpacity activeOpacity={0.7} className="p-2">
-            <SoundIcon width={16} height={16} />
-          </TouchableOpacity>
-        </View>
-        <View style={{ opacity: 0.7 }}>
-          <TouchableOpacity activeOpacity={0.7} className="p-2">
-            <LikeIcon width={16} height={16} />
-          </TouchableOpacity>
-        </View>
-        <View style={{ opacity: 0.7 }}>
-          <TouchableOpacity activeOpacity={0.7} className="p-2">
-            <DislikeIcon width={16} height={16} />
-          </TouchableOpacity>
-        </View>
-        <View style={{ opacity: 0.7 }}>
-          <TouchableOpacity activeOpacity={0.7} className="p-2">
-            <RefreshIcon width={16} height={16} />
-          </TouchableOpacity>
-        </View>
-        <View style={{ opacity: 0.7 }}>
-          <TouchableOpacity activeOpacity={0.7} className="p-2">
-            <UploadIcon width={16} height={16} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {!isStreaming && (
+        <AnimatedToolbar
+          isVisible={!isStreaming}
+          isCopied={isCopied}
+          onCopy={handleCopy}
+        />
+      )}
     </View>
   );
 };

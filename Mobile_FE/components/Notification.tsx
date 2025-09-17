@@ -1,5 +1,12 @@
 import React, { useEffect } from "react";
-import { Animated, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import CloseIcon from "../assets/svg/close.svg";
 import { NotificationProps } from "../types/components";
 
@@ -9,24 +16,20 @@ const Notification: React.FC<NotificationProps> = ({
   onClose,
   duration = 3000,
 }) => {
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(-50);
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(-50);
 
   useEffect(() => {
     if (visible) {
       // Show notification
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      opacity.value = withTiming(1, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
+      translateY.value = withTiming(0, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
 
       // Auto-hide after duration
       const timer = setTimeout(() => {
@@ -35,38 +38,42 @@ const Notification: React.FC<NotificationProps> = ({
 
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, duration]);
 
   const hideNotification = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: -50,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
+    opacity.value = withTiming(0, {
+      duration: 200,
+      easing: Easing.in(Easing.ease),
     });
+    translateY.value = withTiming(
+      -50,
+      {
+        duration: 200,
+        easing: Easing.in(Easing.ease),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(onClose)();
+        }
+      }
+    );
   };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   if (!visible) return null;
 
   return (
     <Animated.View
-      style={{
-        opacity: fadeAnim,
-        transform: [{ translateY: slideAnim }],
-      }}
+      style={[animatedStyle]}
       className="absolute top-2 left-4 right-4"
     >
-      <View className="bg-gray-100 rounded-2xl px-2 py-3 flex-row items-center border-solid border-2 border-[#ECECEC] gap-4">
+      <View className="bg-gray-100 rounded-2xl px-2 py-3 flex-row items-center border-solid border-1 border-[#ECECEC] gap-4">
         <TouchableOpacity
-          onPress={hideNotification}w
+          onPress={hideNotification}
           className="ml-3 w-6 h-6 bg-gray-300 rounded-full items-center justify-center"
           activeOpacity={0.7}
         >

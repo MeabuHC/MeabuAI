@@ -21,12 +21,33 @@ export class AiService {
       memory: { thread: finalThreadId, resource: resourceId },
     });
 
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Transfer-Encoding', 'chunked');
+    // Set proper headers for Server-Sent Events
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
     res.setHeader('X-Thread-Id', finalThreadId);
 
-    for await (const chunk of stream.textStream) {
-      res.write(chunk);
+    try {
+      for await (const chunk of stream.textStream) {
+        // Format as Server-Sent Events
+        const sseData = `data: ${JSON.stringify({ content: chunk })}\n\n`;
+        res.write(sseData);
+
+        // Force flush the data to client
+        if ('flush' in res) {
+          (res as any).flush();
+        }
+      }
+
+      // Send completion signal
+      res.write('data: [DONE]\n\n');
+    } catch (error) {
+      console.error('Streaming error:', error);
+      res.write(
+        `data: ${JSON.stringify({ error: 'Stream error occurred' })}\n\n`,
+      );
     }
 
     res.end();

@@ -29,6 +29,7 @@ export interface AIMessageProps {
     message: string;
     onCopy?: () => void;
     copyResetDuration?: number;
+    isStreaming?: boolean;
 }
 
 // Notification Components

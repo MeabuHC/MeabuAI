@@ -22,7 +22,8 @@
       "statusBar": {
         "style": "auto",
         "translucent": false
-      }
+      },
+      "package": "com.anonymous.MeabuAI"
     },
     "web": {
       "bundler": "metro",
@@ -38,7 +39,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
