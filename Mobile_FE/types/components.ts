@@ -30,6 +30,7 @@ export interface AIMessageProps {
     onCopy?: () => void;
     copyResetDuration?: number;
     isStreaming?: boolean;
+    animateOnMount?: boolean;
 }
 
 // Notification Components
@@ -90,4 +91,5 @@ export type UIMessage = {
     parts: MessagePart[];
     experimental_attachments: any[]; // refine later if you know the structure
     status: "completed" | "streaming" | "error" | "cancelled" | "pending";
+    animateOnMountOnce?: boolean;
 }

@@ -3,7 +3,7 @@ import { useStreaming } from "@/hooks/useStreaming";
 import api from "@/services/api";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { useNavigation } from "@react-navigation/native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -23,8 +23,16 @@ import Notification from "../components/Notification";
 import ScrollToBottomButton from "../components/ScrollToBottomButton";
 import UserMessage from "../components/UserMessage";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { addConversation } from "../store/slices/conversationsSlice";
-import { ConversationScreenProps, UIMessage } from "../types/components";
+import {
+  addConversation,
+  updateConversationDetails,
+  updateConversationId,
+} from "../store/slices/conversationsSlice";
+import {
+  Conversation,
+  ConversationScreenProps,
+  UIMessage,
+} from "../types/components";
 import { DrawerParamList } from "../types/drawer";
 import { cleanupText } from "../utils/textUtils";
 
@@ -66,6 +74,50 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
     stopStreaming,
   } = useStreaming();
 
+  // Hold the real thread id received from headers until stream completes
+  const newThreadIdRef = useRef<string | null>(null);
+
+  // Helpers to keep streaming updates DRY (defined after setMessages is available)
+  const appendChunkToLastAssistant = useCallback(
+    (chunk: string) => {
+      setMessages((prev) => {
+        if (!prev) return [];
+
+        const updatedMessages = [...prev];
+        const lastMessage = updatedMessages[updatedMessages.length - 1];
+
+        if (lastMessage && lastMessage.role === "assistant") {
+          lastMessage.content += chunk;
+          lastMessage.status = "streaming";
+
+          if (lastMessage.parts.length === 0) {
+            lastMessage.parts = [{ type: "text", text: lastMessage.content }];
+          } else {
+            lastMessage.parts[0] = { type: "text", text: lastMessage.content };
+          }
+        }
+
+        return updatedMessages;
+      });
+    },
+    [setMessages]
+  );
+
+  const markLastAssistantCompleted = useCallback(() => {
+    setMessages((prev) => {
+      if (!prev) return [];
+
+      const updatedMessages = [...prev];
+      const lastMessage = updatedMessages[updatedMessages.length - 1];
+
+      if (lastMessage && lastMessage.role === "assistant") {
+        lastMessage.status = "completed";
+      }
+
+      return updatedMessages;
+    });
+  }, [setMessages]);
+
   useEffect(() => {
     if (conversationId) {
       // We have a conversationId (backend id), fetch messages
@@ -89,7 +141,73 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
           localId: uuidv4(),
           conversationId: localConversationId || "",
         };
-        setMessages([newMessage]);
+
+        const newResponse: UIMessage = {
+          content: "",
+          role: "assistant",
+          createdAt: new Date().toISOString(),
+          parts: [],
+          experimental_attachments: [],
+          localId: uuidv4(),
+          status: "pending",
+          conversationId: localConversationId || "",
+          animateOnMountOnce: true,
+        };
+
+        setMessages([newMessage, newResponse]);
+
+        // Kick off streaming for the initial message
+        const threadId = localConversationId || conversationId || "";
+        streamMessage(
+          initialMessageText,
+          threadId,
+          (chunk: string) => appendChunkToLastAssistant(chunk),
+          () => {
+            // On completion, mark the message as completed
+            markLastAssistantCompleted();
+            // Update title and timestamps after backend finishes generating them
+            const effectiveThreadId =
+              newThreadIdRef.current ||
+              conversationId ||
+              localConversationId ||
+              "";
+            if (effectiveThreadId) {
+              api
+                .get(`/ai/threads/${effectiveThreadId}`)
+                .then((res) => {
+                  const t = res.data;
+                  dispatch(
+                    updateConversationDetails({
+                      localId: localConversationId!,
+                      id: t.id,
+                      title: t.title,
+                      createdAt: t.createdAt,
+                      updatedAt: t.updatedAt,
+                      resourceId: t.resourceId,
+                      metadata: t.metadata ?? null,
+                    })
+                  );
+                })
+                .catch(() => {})
+                .finally(() => {
+                  newThreadIdRef.current = null;
+                });
+            }
+          },
+          (headers: Headers) => {
+            const newThreadId =
+              headers.get("X-Thread-Id") || headers.get("x-thread-id");
+            if (newThreadId && !conversationId) {
+              newThreadIdRef.current = newThreadId;
+              dispatch(
+                updateConversationId({
+                  localId: localConversationId!,
+                  id: newThreadId,
+                })
+              );
+            }
+          }
+        );
       } else {
         setMessages([]); // Clear messages for new conversation
       }
@@ -97,11 +215,45 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   }, []);
 
   const flatListRef = useRef<FlatList>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  // When keyboard appears, if user is already at bottom, snap to bottom (no animation)
+  useEffect(() => {
+    const onShow = () => {
+      if (!isAtBottom) return;
+
+      const scrollNow = () => {
+        console.log("Scrolling to end");
+        flatListRef.current?.scrollToEnd({ animated: false });
+      };
+
+      if (Platform.OS === "ios") {
+        // Ensure FlatList re-layout occurs before scrolling
+        requestAnimationFrame(() => requestAnimationFrame(scrollNow));
+      } else {
+        requestAnimationFrame(scrollNow);
+      }
+    };
+
+    const sub =
+      Platform.OS === "ios"
+        ? Keyboard.addListener("keyboardWillShow", onShow)
+        : Keyboard.addListener("keyboardDidShow", onShow);
+
+    return () => {
+      sub.remove();
+    };
+  }, [isAtBottom]);
+
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [notification, setNotification] = useState({
     visible: false,
     message: "",
   });
+  const [touchStartPosition, setTouchStartPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Notification duration constant
   const NOTIFICATION_DURATION = 3000;
@@ -115,13 +267,10 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       const cleanedText = cleanupText(text.trim());
 
       // Create a temporary chat entry for the conversation list
-      const temporaryConversation = {
+      const temporaryConversation: Conversation = {
         localId: newLocalId,
         resourceId: "", // Empty for new chats
-        title:
-          cleanedText.length > 50
-            ? cleanedText.substring(0, 50) + "..."
-            : cleanedText,
+        title: "",
         metadata: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -160,6 +309,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
         localId: uuidv4(),
         status: "pending",
         conversationId: localConversationId || "",
+        animateOnMountOnce: true,
       };
 
       setMessages((prev) => [...(prev || []), newMessage, newResponse]);
@@ -169,50 +319,51 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       streamMessage(
         messageText,
         threadId,
-        (chunk: string) => {
-          console.log("🎯 Chunk received in UI:", chunk);
-          // Update the assistant message with streaming content
-          setMessages((prev) => {
-            if (!prev) return [];
-
-            const updatedMessages = [...prev];
-            const lastMessage = updatedMessages[updatedMessages.length - 1];
-
-            if (lastMessage && lastMessage.role === "assistant") {
-              // Append chunk to existing content
-              lastMessage.content += chunk;
-              lastMessage.status = "streaming";
-
-              // Update parts array for proper rendering
-              if (lastMessage.parts.length === 0) {
-                lastMessage.parts = [
-                  { type: "text", text: lastMessage.content },
-                ];
-              } else {
-                lastMessage.parts[0] = {
-                  type: "text",
-                  text: lastMessage.content,
-                };
-              }
-            }
-
-            return updatedMessages;
-          });
-        },
+        (chunk: string) => appendChunkToLastAssistant(chunk),
         () => {
           // On completion, mark the message as completed
-          setMessages((prev) => {
-            if (!prev) return [];
-
-            const updatedMessages = [...prev];
-            const lastMessage = updatedMessages[updatedMessages.length - 1];
-
-            if (lastMessage && lastMessage.role === "assistant") {
-              lastMessage.status = "completed";
-            }
-
-            return updatedMessages;
-          });
+          markLastAssistantCompleted();
+          const effectiveThreadId =
+            newThreadIdRef.current ||
+            conversationId ||
+            localConversationId ||
+            "";
+          if (effectiveThreadId) {
+            api
+              .get(`/ai/threads/${effectiveThreadId}`)
+              .then((res) => {
+                const t = res.data;
+                dispatch(
+                  updateConversationDetails({
+                    localId: localConversationId!,
+                    id: t.id,
+                    title: t.title,
+                    createdAt: t.createdAt,
+                    updatedAt: t.updatedAt,
+                    resourceId: t.resourceId,
+                    metadata: t.metadata ?? null,
+                  })
+                );
+              })
+              .catch(() => {})
+              .finally(() => {
+                newThreadIdRef.current = null;
+              });
+          }
+        },
+        (headers: Headers) => {
+          const newThreadId =
+            headers.get("X-Thread-Id") || headers.get("x-thread-id");
+          if (newThreadId && !conversationId) {
+            newThreadIdRef.current = newThreadId;
+            navigation.setParams({ conversationId: newThreadId } as any);
+            dispatch(
+              updateConversationId({
+                localId: localConversationId!,
+                id: newThreadId,
+              })
+            );
+          }
         }
       );
 
@@ -225,12 +376,9 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
     }
   };
 
-  const handleCopy = () => {
-    setNotification({
-      visible: true,
-      message: "Message copied",
-    });
-  };
+  const handleCopy = useCallback(() => {
+    setNotification({ visible: true, message: "Message copied" });
+  }, []);
 
   const hideNotification = () => {
     setNotification({
@@ -241,17 +389,44 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
 
   // This function runs when the user scrolls in a ScrollView or FlatList
   const handleScroll = (event: any) => {
-    // Destructure the scroll position and sizes from the scroll event
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
 
-    // Check if the user is NOT near the bottom of the scroll view
-    // Specifically, if the scroll position (contentOffset.y)
-    // is at least 450 pixels above the bottom
+    // Determine if user is at or near the bottom
+    const paddingToBottom = 20; // how close is "at bottom"
+    const atBottom =
+      contentOffset.y + layoutMeasurement.height >=
+      contentSize.height - paddingToBottom;
+
+    setIsAtBottom(atBottom);
+
+    // Keep the scroll-to-bottom button logic
     const isScrolledUp =
       contentOffset.y < contentSize.height - layoutMeasurement.height - 450;
-
-    // Show the "scroll to bottom" button only when the user is scrolled up
     setShowScrollToBottom(isScrolledUp);
+  };
+
+  // Handle touch start to track position
+  const handleTouchStart = (event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setTouchStartPosition({ x: pageX, y: pageY });
+  };
+
+  // Handle touch end to dismiss keyboard only if it was a tap (not a drag)
+  const handleTouchEnd = (event: any) => {
+    if (!touchStartPosition) return;
+
+    const { pageX, pageY } = event.nativeEvent;
+    const deltaX = Math.abs(pageX - touchStartPosition.x);
+    const deltaY = Math.abs(pageY - touchStartPosition.y);
+
+    // If the touch moved less than 10 pixels, consider it a tap
+    const isTap = deltaX < 10 && deltaY < 10;
+
+    if (isTap) {
+      Keyboard.dismiss();
+    }
+
+    setTouchStartPosition(null);
   };
 
   const scrollToBottom = () => {
@@ -289,16 +464,9 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
               className="pt-6"
               data={messages || []}
               onScroll={handleScroll}
-              onScrollBeginDrag={() => Keyboard.dismiss()}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
               scrollEventThrottle={16}
-              onContentSizeChange={() => {
-                // Auto-scroll when content changes (for new messages)
-                if (messages && messages.length > 0) {
-                  setTimeout(() => {
-                    flatListRef.current?.scrollToEnd({ animated: false });
-                  }, 100);
-                }
-              }}
               renderItem={({ item }: { item: UIMessage }) =>
                 item.role === "user" ? (
                   <UserMessage message={item.content} />
@@ -310,6 +478,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
                     onCopy={handleCopy}
                     copyResetDuration={NOTIFICATION_DURATION}
                     isStreaming={item.status === "streaming"}
+                    animateOnMount={item.animateOnMountOnce === true}
                   />
                 )
               }

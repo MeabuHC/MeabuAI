@@ -26,7 +26,12 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    console.log("CodeBlock mounted:", nodeKey);
+  }, []);
+
   const handleCopy = async () => {
+    console.log("Is copy");
     if (isCopied) return;
 
     try {
@@ -187,4 +192,4 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   );
 };
 
-export default CodeBlock;
+export default React.memo(CodeBlock);

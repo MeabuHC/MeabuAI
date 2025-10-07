@@ -4,6 +4,7 @@ interface StreamingOptions {
     onMessage: (chunk: string) => void;
     onComplete: () => void;
     onError: (error: Error) => void;
+    onHeaders?: (headers: Headers) => void; // expose response headers (e.g., X-Thread-Id)
     signal?: AbortSignal;
 }
 
@@ -44,6 +45,12 @@ export class StreamingApiService {
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            if (options.onHeaders) {
+                try {
+                    options.onHeaders(response.headers);
+                } catch { }
             }
 
             if (!response.body) {

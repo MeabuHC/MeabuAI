@@ -17,9 +17,12 @@ export class AiService {
     // Generate a new threadId if not provided
     const finalThreadId = threadId || uuidv4();
 
-    const stream = await myAgent.stream([{ role: 'user', content: message }], {
-      memory: { thread: finalThreadId, resource: resourceId },
-    });
+    const stream = await myAgent.streamLegacy(
+      [{ role: 'user', content: message }],
+      {
+        memory: { thread: finalThreadId, resource: resourceId },
+      },
+    );
 
     // Set proper headers for Server-Sent Events
     res.setHeader('Content-Type', 'text/event-stream');

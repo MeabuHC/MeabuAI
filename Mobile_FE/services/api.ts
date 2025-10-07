@@ -1,5 +1,11 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { secureStorage } from '../utils/storage';
+import { AuthService } from './authService';
+
+// Extend the AxiosRequestConfig interface to include our custom properties
+interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
+    _tokenLogged?: boolean;
+    _retry?: boolean;
+}
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -12,8 +18,8 @@ const api: AxiosInstance = axios.create({
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
-    async (config: InternalAxiosRequestConfig) => {
-        const token = await secureStorage.getToken();
+    async (config: CustomAxiosRequestConfig) => {
+        const token = await AuthService.getToken();
 
         // Only log if we haven't logged for this request
         if (!config._tokenLogged) {
@@ -37,18 +43,18 @@ api.interceptors.response.use(
         return response;
     },
     async (error) => {
-        const originalRequest = error.config;
+        const originalRequest = error.config as CustomAxiosRequestConfig;
 
         // If error is 401 and we haven't already tried to refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
             try {
-                const refreshToken = await secureStorage.getRefreshToken();
+                const refreshToken = await AuthService.getRefreshToken();
 
                 if (!refreshToken) {
-                    // No refresh token available, clear storage and redirect to login
-                    await secureStorage.clearAll();
+                    // No refresh token available, clear storage and surface error
+                    await AuthService.clearAuthData();
                     return Promise.reject(error);
                 }
 
@@ -66,9 +72,9 @@ api.interceptors.response.use(
                 const { access_token, refresh_token: newRefreshToken } = refreshResponse.data;
 
                 // Store new tokens
-                await secureStorage.setToken(access_token);
+                await AuthService.setToken(access_token);
                 if (newRefreshToken) {
-                    await secureStorage.setRefreshToken(newRefreshToken);
+                    await AuthService.setRefreshToken(newRefreshToken);
                 }
 
                 // Update the original request with new token
@@ -77,8 +83,8 @@ api.interceptors.response.use(
                 // Retry the original request
                 return api(originalRequest);
             } catch (refreshError) {
-                // Refresh failed, clear storage and redirect to login
-                await secureStorage.clearAll();
+                // Refresh failed, clear storage and surface error
+                await AuthService.clearAuthData();
                 return Promise.reject(refreshError);
             }
         }

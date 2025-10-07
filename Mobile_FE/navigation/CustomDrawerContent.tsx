@@ -106,6 +106,15 @@ const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
         <ConversationList
           currentLocalId={currentConversationParams?.localId}
           searchText={searchText}
+          onSelectConversation={(conversation) =>
+            props.navigation.navigate("Drawer", {
+              screen: "Conversation",
+              params: {
+                localId: conversation.localId,
+                conversationId: conversation.id,
+              },
+            })
+          }
         />
       </DrawerContentScrollView>
 

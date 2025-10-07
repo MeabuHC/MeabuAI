@@ -16,15 +16,17 @@ import SoundIcon from "../assets/svg/sound.svg";
 import UploadIcon from "../assets/svg/upload.svg";
 
 interface AnimatedToolbarProps {
-  isVisible: boolean;
+  isVisible: boolean; // controls presence; we keep it visible in UI
   isCopied: boolean;
   onCopy: () => void;
+  animateOnMount?: boolean; // when true, run staggered animation; otherwise render static
 }
 
 const AnimatedToolbar: React.FC<AnimatedToolbarProps> = ({
   isVisible,
   isCopied,
   onCopy,
+  animateOnMount = false,
 }) => {
   // Animation values for toolbar icons
   const copyOpacity = useSharedValue(0);
@@ -34,10 +36,20 @@ const AnimatedToolbar: React.FC<AnimatedToolbarProps> = ({
   const refreshOpacity = useSharedValue(0);
   const uploadOpacity = useSharedValue(0);
 
-  // Animate toolbar icons when visible
+  // Animate toolbar icons once if requested; otherwise render fully visible
   useEffect(() => {
-    if (isVisible) {
-      // Animate icons one by one with staggered delays
+    if (!isVisible) {
+      // If explicitly hidden, set to 0
+      copyOpacity.value = 0;
+      soundOpacity.value = 0;
+      likeOpacity.value = 0;
+      dislikeOpacity.value = 0;
+      refreshOpacity.value = 0;
+      uploadOpacity.value = 0;
+      return;
+    }
+
+    if (animateOnMount) {
       copyOpacity.value = withDelay(
         100,
         withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) })
@@ -63,15 +75,15 @@ const AnimatedToolbar: React.FC<AnimatedToolbarProps> = ({
         withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) })
       );
     } else {
-      // Reset all opacities when not visible
-      copyOpacity.value = 0;
-      soundOpacity.value = 0;
-      likeOpacity.value = 0;
-      dislikeOpacity.value = 0;
-      refreshOpacity.value = 0;
-      uploadOpacity.value = 0;
+      // No animation: show at full opacity
+      copyOpacity.value = 1;
+      soundOpacity.value = 1;
+      likeOpacity.value = 1;
+      dislikeOpacity.value = 1;
+      refreshOpacity.value = 1;
+      uploadOpacity.value = 1;
     }
-  }, [isVisible]);
+  }, [isVisible, animateOnMount]);
 
   // Animated styles for each icon
   const copyAnimatedStyle = useAnimatedStyle(() => ({

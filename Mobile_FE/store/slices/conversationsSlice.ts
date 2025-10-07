@@ -46,6 +46,46 @@ const conversationsSlice = createSlice({
                 state.conversations.unshift(action.payload);
             }
         },
+        updateConversationId: (
+            state,
+            action: PayloadAction<{ localId: string; id: string }>
+        ) => {
+            const conversation = state.conversations.find(
+                c => c.localId === action.payload.localId
+            );
+            if (conversation) {
+                conversation.id = action.payload.id;
+                conversation.updatedAt = new Date().toISOString();
+            }
+        },
+        updateConversationDetails: (
+            state,
+            action: PayloadAction<{
+                localId: string;
+                id: string;
+                title: string;
+                createdAt: string;
+                updatedAt: string;
+                resourceId?: string;
+                metadata?: any | null;
+            }>
+        ) => {
+            const conversation = state.conversations.find(
+                c => c.localId === action.payload.localId
+            );
+            if (conversation) {
+                conversation.id = action.payload.id;
+                conversation.title = action.payload.title;
+                conversation.createdAt = action.payload.createdAt;
+                conversation.updatedAt = action.payload.updatedAt;
+                if (action.payload.resourceId !== undefined) {
+                    conversation.resourceId = action.payload.resourceId as any;
+                }
+                if (action.payload.metadata !== undefined) {
+                    conversation.metadata = action.payload.metadata;
+                }
+            }
+        },
         removeConversation: (state, action: PayloadAction<string>) => {
             state.conversations = state.conversations.filter(
                 conversation => conversation.localId !== action.payload
@@ -106,6 +146,8 @@ const conversationsSlice = createSlice({
 
 export const {
     addConversation,
+    updateConversationId,
+    updateConversationDetails,
     removeConversation,
     updateConversationTitle,
     clearConversations,

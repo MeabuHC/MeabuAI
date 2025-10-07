@@ -1,5 +1,6 @@
 import { groq } from '@ai-sdk/groq';
 import { Agent } from '@mastra/core/agent';
+import { TokenLimiterProcessor } from '@mastra/core/processors';
 import { fastembed } from '@mastra/fastembed';
 import { Memory } from '@mastra/memory';
 import { PgVector, PostgresStore } from '@mastra/pg';
@@ -29,7 +30,11 @@ export const memory = new Memory({
   }),
   options: {
     threads: {
-      generateTitle: true,
+      generateTitle: {
+        // Instruct title generator to use sentence case with leading uppercase
+        instructions:
+          'Generate a concise, human-friendly conversation title. Use sentence case (capitalize the first letter), avoid trailing punctuation, and do not wrap in quotes.',
+      },
     },
     lastMessages: 15,
     semanticRecall: {
@@ -43,6 +48,13 @@ export const memory = new Memory({
 export const myAgent = new Agent({
   name: 'My Personal Assistant',
   instructions: 'You are a helpful assistant.',
-  model: groq('llama-3.3-70b-versatile'),
+  model: groq('llama-3.1-8b-instant'),
   memory: memory,
+  outputProcessors: [
+    new TokenLimiterProcessor({
+      limit: 1000,
+      strategy: 'truncate',
+      countMode: 'cumulative',
+    }),
+  ],
 });
