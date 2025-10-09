@@ -1,4 +1,5 @@
 import { registerRootComponent } from "expo";
+import "react-native-gesture-handler";
 import "react-native-get-random-values";
 
 // Suppress SafeAreaView deprecation warning

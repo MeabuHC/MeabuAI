@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
+  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -39,10 +40,23 @@ const ConversationList: React.FC<ConversationListProps> = ({
     dispatch(fetchConversations());
   }, [dispatch]);
 
-  // Filter conversations based on search text
-  const filteredConversations = (conversations || []).filter((conversation) =>
-    conversation.title.toLowerCase().includes(searchText.toLowerCase())
-  );
+  // Initialize prevTitlesRef with current titles to prevent animation on first load
+  useEffect(() => {
+    if (conversations && conversations.length > 0) {
+      conversations.forEach((conv) => {
+        if (conv.title && !prevTitlesRef.current[conv.localId]) {
+          prevTitlesRef.current[conv.localId] = conv.title;
+        }
+      });
+    }
+  }, [conversations]);
+
+  // Filter only; ordering handled in store (sorted by updatedAt desc)
+  const filteredConversations = (conversations || [])
+    .filter((conversation) => conversation.shouldList !== false)
+    .filter((conversation) =>
+      conversation.title.toLowerCase().includes(searchText.toLowerCase())
+    );
 
   const handleConversationPress = (conversation: Conversation) => {
     if (onSelectConversation) {
@@ -68,12 +82,19 @@ const ConversationList: React.FC<ConversationListProps> = ({
     // Title entrance animation when it changes from empty to non-empty
     const prevTitleRef = useRef(item.title);
     const [animateKey, setAnimateKey] = useState(0);
+    const [showAnimated, setShowAnimated] = useState(shouldStagger);
 
     useEffect(() => {
       const prevTitle = prevTitleRef.current;
       if (!prevTitle && item.title) {
         // trigger remount of word components to run their entrance animations
         setAnimateKey((k) => k + 1);
+        setShowAnimated(true);
+        // auto-switch back to single-line Text after animation finishes to restore ellipsis
+        const words = item.title.split(/\s+/).filter(Boolean).length;
+        const totalMs = Math.min(1500, words * 100 + 300);
+        const t = setTimeout(() => setShowAnimated(false), totalMs);
+        return () => clearTimeout(t);
       }
       prevTitleRef.current = item.title;
       onTitleSeen();
@@ -108,48 +129,57 @@ const ConversationList: React.FC<ConversationListProps> = ({
     };
 
     return (
-      <Pressable
-        onPress={() => handleConversationPress(item)}
-        className="px-4 py-[8px] rounded-2xl mb-2"
-        style={{
-          backgroundColor: isActive ? "#F6F6F6" : "transparent",
-        }}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-      >
-        {shouldStagger ? (
-          <View style={{ flexDirection: "row", flexWrap: "nowrap" }}>
-            {(() => {
-              const words = item.title.split(/\s+/).filter(Boolean);
-              return words.map((w, i) => (
-                <View
-                  key={`${animateKey}-${i}`}
-                  style={{ flexDirection: "row" }}
-                >
-                  <Word text={w} index={i} akey={animateKey} />
-                  {/* space between words */}
-                  {i < words.length - 1 ? (
-                    <Text
-                      className={`text-lg ${
-                        isDark ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {" "}
-                    </Text>
-                  ) : null}
-                </View>
-              ));
-            })()}
-          </View>
-        ) : (
-          <Text
-            className={`text-lg ${isDark ? "text-white" : "text-gray-900"}`}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {item.title}
-          </Text>
-        )}
-      </Pressable>
+      <Animated.View layout={LinearTransition.springify()}>
+        <Pressable
+          onPress={() => handleConversationPress(item)}
+          className="px-4 py-[8px] rounded-2xl mb-2"
+          style={{
+            backgroundColor: isActive ? "#F6F6F6" : "transparent",
+          }}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          {showAnimated ? (
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "nowrap",
+                overflow: "hidden",
+                maxWidth: "100%",
+              }}
+            >
+              {(() => {
+                const words = item.title.split(/\s+/).filter(Boolean);
+                return words.map((w, i) => (
+                  <View
+                    key={`${animateKey}-${i}`}
+                    style={{ flexDirection: "row" }}
+                  >
+                    <Word text={w} index={i} akey={animateKey} />
+                    {/* space between words */}
+                    {i < words.length - 1 ? (
+                      <Text
+                        className={`text-lg ${
+                          isDark ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {" "}
+                      </Text>
+                    ) : null}
+                  </View>
+                ));
+              })()}
+            </View>
+          ) : (
+            <Text
+              className={`text-lg ${isDark ? "text-white" : "text-gray-900"}`}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {item.title}
+            </Text>
+          )}
+        </Pressable>
+      </Animated.View>
     );
   };
 
@@ -172,8 +202,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
   return (
     <View className={`${isDark ? "bg-gray-900" : "bg-white"} px-1`}>
       {filteredConversations.map((c) => {
-        const prevTitle = prevTitlesRef.current[c.localId] || "";
-        const shouldStagger = !prevTitle && !!c.title;
+        const prevTitle = prevTitlesRef.current[c.localId];
+        // Only animate if this is the first time we see a title for this conversation
+        // (prevTitle is undefined, meaning we haven't seen this conversation before)
+        const shouldStagger = prevTitle === undefined && c.title !== "";
         return (
           <ConversationRow
             key={c.localId}

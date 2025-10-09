@@ -12,6 +12,7 @@ const ConversationInput: React.FC<ConversationInputProps> = ({
   onTextChange,
   onSend,
   onAddPress,
+  isStreaming,
 }) => {
   const [isWrapped, setIsWrapped] = useState(false);
 
@@ -57,7 +58,9 @@ const ConversationInput: React.FC<ConversationInputProps> = ({
           className="bg-[#000000] rounded-full p-2 mr-2 mt-auto mb-2"
           onPress={text.trim() ? onSend : undefined}
         >
-          {text.trim() ? (
+          {isStreaming ? (
+            <Ionicons name="stop" size={20} color="#FFFFFF" />
+          ) : text.trim() ? (
             <Ionicons name="arrow-up" size={25} color="#FFFFFF" />
           ) : (
             <MusicIcon width={25} height={25} color="#FFFFFF" />

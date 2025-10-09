@@ -1,295 +1,275 @@
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useState } from "react";
+import React from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  ActivityIndicator,
+  Keyboard,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import GoogleSvg from "../assets/svg/google.svg";
+import AnimatedHeadline from "../components/AnimatedHeadline";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { clearError, loginUser } from "../store/slices/authSlice";
-import type { LoginCredentials } from "../types/auth";
-import type { RootStackParamList } from "../types/navigation";
-
-type LoginScreenNavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  "Login"
->;
+import { clearError, loginUser, registerUser } from "../store/slices/authSlice";
 
 export default function LoginScreen() {
-  const navigation = useNavigation<LoginScreenNavigationProp>();
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
-  const { isLoading, error, isAuthenticated } = useAppSelector(
-    (state) => state.auth
-  );
-  const { theme } = useAppSelector((state) => state.theme);
-  const isDark = theme === "dark";
+  const isLoading = useAppSelector((s) => s.auth.isLoading);
+  const authError = useAppSelector((s) => s.auth.error);
 
-  const [credentials, setCredentials] = useState<LoginCredentials>({
-    email: "",
-    password: "",
-  });
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleLogin = async () => {
-    if (!credentials.email || !credentials.password) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
-
-    dispatch(clearError());
-
-    try {
-      await dispatch(loginUser(credentials)).unwrap();
-      // Navigation will happen automatically due to isAuthenticated state change
-    } catch (error) {
-      Alert.alert("Login Error", error as string);
-    }
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const [isSignup, setIsSignup] = React.useState(false);
+  const [emailFocused, setEmailFocused] = React.useState(false);
+  const [passwordFocused, setPasswordFocused] = React.useState(false);
+  const [confirmFocused, setConfirmFocused] = React.useState(false);
+  const handleContinueWithGoogle = () => {
+    // TODO: integrate Google sign-in
   };
 
-  const handleSocialLogin = (provider: string) => {
-    Alert.alert("Coming Soon", `${provider} login will be implemented soon!`);
+  const handleSignUp = () => {
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setFormError(null);
+    dispatch(clearError());
+    setIsSignup(true);
+  };
+
+  const handleLogin = () => {
+    const emailRegex = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+    if (!emailRegex.test(email.trim())) {
+      setFormError("Enter a valid email address");
+      return;
+    }
+    if (password.length < 6) {
+      setFormError("Password must be at least 6 characters");
+      return;
+    }
+    setFormError(null);
+    dispatch(loginUser({ email: email.trim(), password }));
+  };
+
+  const handleRegister = () => {
+    const emailRegex = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+    if (!emailRegex.test(email.trim())) {
+      setFormError("Enter a valid email address");
+      return;
+    }
+    if (password.length < 6) {
+      setFormError("Password must be at least 6 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setFormError("Passwords do not match");
+      return;
+    }
+    setFormError(null);
+    dispatch(registerUser({ email: email.trim(), password }));
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-      >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
-          className="flex-1"
-        >
-          <View className="flex-1 justify-center px-6">
-            {/* Header */}
-            <View className="mb-8">
-              <View className="flex-row justify-center items-baseline mb-2">
-                <Text
-                  className={`text-4xl font-bold ${
-                    isDark ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Welcome to{" "}
-                </Text>
-                <Text className="text-4xl font-bold text-purple-600">
-                  MeabuAI
-                </Text>
-              </View>
-              <Text
-                className={`text-lg text-center ${
-                  isDark ? "text-gray-400" : "text-gray-600"
-                }`}
-              >
-                Sign in to your account
-              </Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+        {/* Center headline with animation */}
+        <AnimatedHeadline />
+
+        {/* Bottom actions (edge-to-edge with internal padding) */}
+        <View>
+          <View
+            className="bg-black rounded-t-3xl p-4"
+            style={{
+              paddingBottom: insets.bottom + 12,
+              paddingHorizontal: 16,
+              paddingTop: 24,
+            }}
+          >
+            {/* Email/Password form */}
+            <View className="mb-4">
+              <Text className="text-white text-base mb-1">Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+                autoComplete="email"
+                placeholder="you@example.com"
+                placeholderTextColor="#9CA3AF"
+                className="rounded-xl px-4 py-3 text-white"
+                style={{
+                  backgroundColor: "#111827",
+                  borderWidth: 1,
+                  borderColor: emailFocused ? "#6B7280" : "#2B2F36",
+                  textAlignVertical: "center",
+                  shadowColor: emailFocused ? "#000" : undefined,
+                  shadowOpacity: emailFocused ? 0.2 : 0,
+                  shadowRadius: emailFocused ? 6 : 0,
+                  shadowOffset: emailFocused
+                    ? { width: 0, height: 2 }
+                    : undefined,
+                  elevation: emailFocused ? 2 : 0,
+                }}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+              />
             </View>
-
-            {/* Error Message */}
-            {error && (
-              <View className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">
-                <Text className="text-red-700 text-center">{error}</Text>
-              </View>
-            )}
-
-            {/* Login Form */}
-            <View className="space-y-4 mb-6 gap-3">
-              {/* Email Input */}
-              <View>
-                <Text
-                  className={`text-sm font-medium mb-2 ${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Email Address
+            <View className="mb-3">
+              <Text className="text-white text-base mb-1">Password</Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                textContentType="none"
+                autoComplete="off"
+                placeholder="••••••••"
+                placeholderTextColor="#9CA3AF"
+                className="rounded-xl px-4 py-3 text-white"
+                style={{
+                  backgroundColor: "#111827",
+                  borderWidth: 1,
+                  borderColor: passwordFocused ? "#6B7280" : "#2B2F36",
+                  textAlignVertical: "center",
+                  shadowColor: passwordFocused ? "#000" : undefined,
+                  shadowOpacity: passwordFocused ? 0.2 : 0,
+                  shadowRadius: passwordFocused ? 6 : 0,
+                  shadowOffset: passwordFocused
+                    ? { width: 0, height: 2 }
+                    : undefined,
+                  elevation: passwordFocused ? 2 : 0,
+                }}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+              />
+            </View>
+            {isSignup && (
+              <View className="mb-3">
+                <Text className="text-white text-base mb-1">
+                  Re-enter password
                 </Text>
                 <TextInput
-                  className={`w-full px-4 border rounded-lg text-base ${
-                    isDark
-                      ? "bg-gray-800 border-gray-600 text-white placeholder:text-gray-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                  }`}
-                  style={{ height: 50, textAlignVertical: "center" }}
-                  placeholder="Enter your email"
-                  value={credentials.email}
-                  onChangeText={(text) =>
-                    setCredentials({ ...credentials, email: text })
-                  }
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="username"
-                  textContentType="username"
-                  importantForAutofill="yes"
-                  returnKeyType="next"
-                  blurOnSubmit={false}
-                  onSubmitEditing={() => {
-                    // Focus password field when user taps next
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  textContentType="none"
+                  autoComplete="off"
+                  placeholder="••••••••"
+                  placeholderTextColor="#9CA3AF"
+                  className="rounded-xl px-4 py-3 text-white"
+                  style={{
+                    backgroundColor: "#111827",
+                    borderWidth: 1,
+                    borderColor: confirmFocused ? "#6B7280" : "#2B2F36",
+                    textAlignVertical: "center",
+                    shadowColor: confirmFocused ? "#000" : undefined,
+                    shadowOpacity: confirmFocused ? 0.2 : 0,
+                    shadowRadius: confirmFocused ? 6 : 0,
+                    shadowOffset: confirmFocused
+                      ? { width: 0, height: 2 }
+                      : undefined,
+                    elevation: confirmFocused ? 2 : 0,
                   }}
+                  onFocus={() => setConfirmFocused(true)}
+                  onBlur={() => setConfirmFocused(false)}
                 />
               </View>
-
-              {/* Password Input */}
-              <View>
-                <Text
-                  className={`text-sm font-medium mb-2 ${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Password
-                </Text>
-                <View className="relative">
-                  <TextInput
-                    className={`w-full px-4 pr-12 border rounded-lg text-base ${
-                      isDark
-                        ? "bg-gray-800 border-gray-600 text-white placeholder:text-gray-400"
-                        : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                    }`}
-                    style={{ height: 50, textAlignVertical: "center" }}
-                    placeholder="Enter your password"
-                    value={credentials.password}
-                    onChangeText={(text) =>
-                      setCredentials({ ...credentials, password: text })
-                    }
-                    secureTextEntry={!showPassword}
-                    autoComplete="current-password"
-                    textContentType="password"
-                    importantForAutofill="yes"
-                    returnKeyType="done"
-                    onSubmitEditing={handleLogin}
-                  />
-                  <TouchableOpacity
-                    className="absolute right-4 top-0 bottom-0 justify-center items-center"
-                    style={{ width: 24, height: 50 }}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <View
-                      style={{
-                        width: 20,
-                        height: 20,
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text
-                        className={`text-lg ${
-                          isDark ? "text-gray-400" : "text-gray-600"
-                        }`}
-                      >
-                        {showPassword ? "🙈" : "👁️"}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* Login Button */}
-            <TouchableOpacity
-              className={`w-full py-4 rounded-lg mb-6 ${
-                isLoading ? "bg-gray-400" : "bg-purple-600 active:bg-purple-700"
-              }`}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
-              <Text className="text-white text-lg font-semibold text-center">
-                {isLoading ? "Signing In..." : "Sign In"}
+            )}
+            {(formError || authError) && (
+              <Text className="text-red-400 mb-3">
+                {formError ?? authError}
               </Text>
+            )}
+
+            {/* Submit button */}
+            <TouchableOpacity
+              onPress={isSignup ? handleRegister : handleLogin}
+              disabled={isLoading}
+              activeOpacity={0.8}
+              className="w-full rounded-2xl bg-neutral-800 py-4 items-center mb-4"
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text className="text-white text-lg font-semibold">
+                  {isSignup ? "Sign up" : "Log in"}
+                </Text>
+              )}
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View className="flex-row items-center mb-6">
-              <View
-                className={`flex-1 h-px ${
-                  isDark ? "bg-gray-600" : "bg-gray-300"
-                }`}
-              />
-              <Text
-                className={`mx-4 text-sm ${
-                  isDark ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                Or continue with
-              </Text>
-              <View
-                className={`flex-1 h-px ${
-                  isDark ? "bg-gray-600" : "bg-gray-300"
-                }`}
-              />
-            </View>
-
-            {/* Social Login Buttons */}
-            <View className="space-y-3 mb-6 gap-3">
-              {/* Google Login */}
+            {isSignup ? (
               <TouchableOpacity
-                className={`w-full py-3 border rounded-lg flex-row items-center justify-center ${
-                  isDark
-                    ? "border-gray-600 bg-gray-800"
-                    : "border-gray-300 bg-white"
-                }`}
-                onPress={() => handleSocialLogin("Google")}
+                onPress={() => {
+                  setPassword("");
+                  setConfirmPassword("");
+                  setFormError(null);
+                  dispatch(clearError());
+                  setIsSignup(false);
+                }}
+                activeOpacity={0.8}
+                className="w-full rounded-2xl bg-neutral-800 py-4 items-center mb-3"
               >
-                <Text className="text-2xl mr-3">🟦</Text>
-                <Text
-                  className={`text-base font-medium ${
-                    isDark ? "text-gray-200" : "text-gray-700"
-                  }`}
-                >
-                  Continue with Google
+                <Text className="text-white text-lg font-semibold">
+                  Go back
                 </Text>
               </TouchableOpacity>
+            ) : null}
 
-              {/* Facebook Login */}
+            {!isSignup && (
+              <>
+                {/* Divider */}
+                <View className="flex-row items-center mb-3">
+                  <View
+                    style={{ flex: 1, height: 1, backgroundColor: "#374151" }}
+                  />
+                  <Text className="text-gray-400 mx-3">or</Text>
+                  <View
+                    style={{ flex: 1, height: 1, backgroundColor: "#374151" }}
+                  />
+                </View>
+                {/* Continue with Google (no Apple) */}
+                <TouchableOpacity
+                  onPress={handleContinueWithGoogle}
+                  activeOpacity={0.8}
+                  className="w-full rounded-2xl bg-neutral-800 py-4 items-center mb-3"
+                >
+                  <View className="flex-row items-center justify-center">
+                    <GoogleSvg
+                      width={20}
+                      height={20}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text className="text-white text-lg font-semibold">
+                      Continue with Google
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* Sign up */}
+            {!isSignup && (
               <TouchableOpacity
-                className={`w-full py-3 border rounded-lg flex-row items-center justify-center ${
-                  isDark
-                    ? "border-gray-600 bg-gray-800"
-                    : "border-gray-300 bg-white"
-                }`}
-                onPress={() => handleSocialLogin("Facebook")}
+                onPress={handleSignUp}
+                activeOpacity={0.8}
+                className="w-full rounded-2xl bg-neutral-800 py-4 items-center mb-3"
               >
-                <Text className="text-2xl mr-3">🔵</Text>
-                <Text
-                  className={`text-base font-medium ${
-                    isDark ? "text-gray-200" : "text-gray-700"
-                  }`}
-                >
-                  Continue with Facebook
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Footer */}
-            <View className="items-center">
-              <Text
-                className={`text-sm ${
-                  isDark ? "text-gray-400" : "text-gray-600"
-                }`}
-              >
-                Don&apos;t have an account?{" "}
-                <Text
-                  className="text-purple-600 font-medium"
-                  onPress={() =>
-                    Alert.alert(
-                      "Coming Soon",
-                      "Registration will be implemented soon!"
-                    )
-                  }
-                >
+                <Text className="text-white text-lg font-semibold">
                   Sign up
                 </Text>
-              </Text>
-            </View>
+              </TouchableOpacity>
+            )}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }

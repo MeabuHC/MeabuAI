@@ -19,8 +19,13 @@ import AIMessage from "../components/AIMessage";
 import BreathingIndicator from "../components/BreathingIndicator";
 import ConversationHeader from "../components/ConversationHeader";
 import ConversationInput from "../components/ConversationInput";
+import MessageErrorBanner from "../components/MessageErrorBanner";
 import Notification from "../components/Notification";
 import ScrollToBottomButton from "../components/ScrollToBottomButton";
+import SuggestionCarousel, {
+  SUGGESTION_CARDS,
+  SuggestionCard,
+} from "../components/SuggestionCarousel";
 import UserMessage from "../components/UserMessage";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
@@ -35,7 +40,6 @@ import {
 } from "../types/components";
 import { DrawerParamList } from "../types/drawer";
 import { cleanupText } from "../utils/textUtils";
-
 const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   const dispatch = useAppDispatch();
@@ -43,6 +47,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   const { user } = useAppSelector((state) => state.auth);
   const isDark = theme === "dark";
   const [text, setText] = useState("");
+  const [hasActiveError, setHasActiveError] = useState(false);
 
   // Get conversationId (backend id) and localId from route params
   const conversationId = route.params?.conversationId;
@@ -117,6 +122,27 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       return updatedMessages;
     });
   }, [setMessages]);
+
+  const markLastAssistantError = useCallback(
+    (type?: UIMessage["errorType"], errorMessage?: string) => {
+      setMessages((prev) => {
+        if (!prev) return [];
+
+        const updatedMessages = [...prev];
+        const lastMessage = updatedMessages[updatedMessages.length - 1];
+
+        if (lastMessage && lastMessage.role === "assistant") {
+          lastMessage.status = "error";
+          if (type) lastMessage.errorType = type;
+          if (errorMessage) lastMessage.errorMessage = errorMessage;
+        }
+
+        return updatedMessages;
+      });
+      setHasActiveError(true);
+    },
+    [setMessages]
+  );
 
   useEffect(() => {
     if (conversationId) {
@@ -258,13 +284,14 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   // Notification duration constant
   const NOTIFICATION_DURATION = 3000;
 
-  const handleSend = () => {
+  const sendImmediate = (rawText: string) => {
+    if (!rawText || !rawText.trim()) return;
     if (!localConversationId) {
       // Generate a new localId for new conversations and pass the message text
       const newLocalId = uuidv4();
 
       // Clean up the text before processing
-      const cleanedText = cleanupText(text.trim());
+      const cleanedText = cleanupText(rawText.trim());
 
       // Create a temporary chat entry for the conversation list
       const temporaryConversation: Conversation = {
@@ -274,6 +301,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
         metadata: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        shouldList: false,
       };
 
       // Add the temporary chat to Redux store
@@ -285,8 +313,8 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       } as any);
       return;
     }
-    if (text.trim()) {
-      const messageText = cleanupText(text.trim());
+    if (rawText.trim()) {
+      const messageText = cleanupText(rawText.trim());
       const threadId = localConversationId || conversationId || "";
 
       const newMessage: UIMessage = {
@@ -376,9 +404,42 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
     }
   };
 
+  const handleSend = () => {
+    setHasActiveError(false);
+    sendImmediate(text);
+  };
+
   const handleCopy = useCallback(() => {
     setNotification({ visible: true, message: "Message copied" });
   }, []);
+
+  const retryLast = useCallback(() => {
+    const lastUser = (messages || [])
+      .slice()
+      .reverse()
+      .find((m) => m.role === "user");
+    if (lastUser?.content) {
+      setHasActiveError(false);
+      sendImmediate(lastUser.content);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (streamError) {
+      const msg = String(streamError);
+      const isOffline = /network|offline|internet/i.test(msg);
+      const isTimeout = /timeout|time out|timed out|took too long/i.test(msg);
+      const isServer = /5\d\d|internal server|server error/i.test(msg);
+      const type = isOffline
+        ? "network"
+        : isTimeout
+        ? "timeout"
+        : isServer
+        ? "server"
+        : "unknown";
+      markLastAssistantError(type as any, msg);
+    }
+  }, [streamError, markLastAssistantError]);
 
   const hideNotification = () => {
     setNotification({
@@ -473,13 +534,22 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
                 ) : item.status === "pending" ? (
                   <BreathingIndicator />
                 ) : (
-                  <AIMessage
-                    message={item.content}
-                    onCopy={handleCopy}
-                    copyResetDuration={NOTIFICATION_DURATION}
-                    isStreaming={item.status === "streaming"}
-                    animateOnMount={item.animateOnMountOnce === true}
-                  />
+                  <>
+                    <AIMessage
+                      message={item.content}
+                      onCopy={handleCopy}
+                      copyResetDuration={NOTIFICATION_DURATION}
+                      isStreaming={item.status === "streaming"}
+                      animateOnMount={item.animateOnMountOnce === true}
+                    />
+                    {item.status === "error" && (
+                      <MessageErrorBanner
+                        type={item.errorType || "unknown"}
+                        message={item.errorMessage}
+                        onRetry={retryLast}
+                      />
+                    )}
+                  </>
                 )
               }
               ListFooterComponent={<View style={{ height: 24 }} />}
@@ -500,7 +570,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
             />
           )}
 
-          {/* Empty state - provides touch area for keyboard dismissal when no conversation */}
+          {/* Empty state touch area when no conversation */}
           {!conversationId && !localConversationId && (
             <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
               <View className="flex-1" />
@@ -513,15 +583,28 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
             onPress={scrollToBottom}
           />
 
-          {/* Bottom Input */}
-          <ConversationInput
-            text={text}
-            onTextChange={setText}
-            onSend={handleSend}
-            onAddPress={() => {
-              console.log("add pressed");
-            }}
-          />
+          {/* Suggestions carousel (only for new conversation), just above input */}
+          {!conversationId && !localConversationId && (
+            <View className="pb-2">
+              <SuggestionCarousel
+                data={SUGGESTION_CARDS}
+                onSelect={(card: SuggestionCard) => sendImmediate(card.prompt)}
+              />
+            </View>
+          )}
+
+          {/* Bottom Input - Hide when there's an active error */}
+          {!hasActiveError && (
+            <ConversationInput
+              text={text}
+              onTextChange={setText}
+              onSend={handleSend}
+              onAddPress={() => {
+                console.log("add pressed");
+              }}
+              isStreaming={isStreaming}
+            />
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

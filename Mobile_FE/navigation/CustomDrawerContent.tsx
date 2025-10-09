@@ -13,7 +13,9 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchConversations } from "../store/slices/conversationsSlice";
 import { CustomDrawerContentProps } from "../types/components";
 
-const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
+type Props = CustomDrawerContentProps & { onOpenSettings?: () => void };
+
+const CustomDrawerContent: React.FC<Props> = (props) => {
   const insets = useSafeAreaInsets();
   const navigationState = useNavigationState((state) => state);
   const dispatch = useAppDispatch();
@@ -22,19 +24,34 @@ const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
 
   const { theme } = useAppSelector((state) => state.theme);
   const isDark = theme === "dark";
-  const { isLoading } = useAppSelector((state) => state.conversations);
+  const { conversations } = useAppSelector((state) => state.conversations);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Get current conversation ID from navigation state
   const currentConversationParams = navigationState?.routes?.find(
     (route) => route.name === "Conversation"
   )?.params as { conversationId?: string; localId?: string } | undefined;
 
+  const currentIsTemp = (() => {
+    const localId = currentConversationParams?.localId;
+    if (!localId) return false;
+    const conv = conversations?.find((c) => c.localId === localId);
+    return conv ? conv.shouldList === false : false;
+  })();
+
   const handleNewConversationPress = () => {
     props.navigation.navigate("Drawer", { screen: "Conversation" });
   };
 
   const handleRefresh = async () => {
-    await dispatch(fetchConversations());
+    if (refreshing) return;
+    setRefreshing(true);
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 6000));
+    try {
+      await Promise.race([dispatch(fetchConversations()) as any, timeout]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   return (
@@ -50,7 +67,7 @@ const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
         contentContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
+            refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor="#D3D3D3"
             colors={["#D3D3D3"]}
@@ -65,8 +82,10 @@ const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
               backgroundColor:
                 pressedId === "meabuai"
                   ? "#F6F6F6"
-                  : !currentConversationParams?.conversationId &&
-                    !currentConversationParams?.localId
+                  : (!currentConversationParams?.conversationId &&
+                      !currentConversationParams?.localId) ||
+                    // If navigating to a temp conversation (shouldList === false), also highlight MeabuAI
+                    (currentConversationParams?.localId && currentIsTemp)
                   ? "#F6F6F6"
                   : "transparent",
             }}
@@ -119,32 +138,34 @@ const CustomDrawerContent: React.FC<CustomDrawerContentProps> = (props) => {
       </DrawerContentScrollView>
 
       {/* Fixed footer */}
-      <LinearGradient
-        colors={["#F7F7F7", "#FFFFFF"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          padding: 16,
-          paddingBottom: insets.bottom + 16,
-        }}
-      >
-        {/* Avatar */}
-        <Image
-          source={require("../assets/images/Rika.jpg")}
-          style={{ width: 40, height: 40, borderRadius: 100 }}
-        />
-
-        {/* Name */}
-        <Text
-          className={`ml-3 text-lg font-semibold ${
-            isDark ? "text-white" : "text-gray-900"
-          }`}
+      <Pressable onPress={props.onOpenSettings}>
+        <LinearGradient
+          colors={["#F7F7F7", "#FFFFFF"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            padding: 16,
+            paddingBottom: insets.bottom + 16,
+          }}
         >
-          Hoang Cong Minh
-        </Text>
-      </LinearGradient>
+          {/* Avatar */}
+          <Image
+            source={require("../assets/images/Rika.jpg")}
+            style={{ width: 40, height: 40, borderRadius: 100 }}
+          />
+
+          {/* Name */}
+          <Text
+            className={`ml-3 text-lg font-semibold ${
+              isDark ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Hoang Cong Minh
+          </Text>
+        </LinearGradient>
+      </Pressable>
     </View>
   );
 };

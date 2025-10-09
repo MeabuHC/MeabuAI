@@ -4,6 +4,7 @@ import * as Font from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "react-redux";
 import "./global.css";
@@ -78,9 +79,11 @@ function MainNavigator() {
 export default function App() {
   return (
     <Provider store={store}>
-      <SafeAreaProvider>
-        <MainNavigator />
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <MainNavigator />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     </Provider>
   );
 }

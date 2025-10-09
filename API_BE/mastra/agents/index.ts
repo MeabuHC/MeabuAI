@@ -31,7 +31,7 @@ export const memory = new Memory({
   options: {
     threads: {
       generateTitle: {
-        // Instruct title generator to use sentence case with leading uppercase
+        model: groq('llama-3.1-8b-instant'),
         instructions:
           'Generate a concise, human-friendly conversation title. Use sentence case (capitalize the first letter), avoid trailing punctuation, and do not wrap in quotes.',
       },

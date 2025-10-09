@@ -47,6 +47,8 @@ export const loginUser = createAsyncThunk(
     'auth/login',
     async (credentials: LoginCredentials, { rejectWithValue }) => {
         try {
+            // Artificial delay to showcase loading screen
+            await new Promise((resolve) => setTimeout(resolve, 5000));
             const response = await api.post('/auth/login', credentials);
             const authData = response.data as AuthResponse;
 
@@ -69,6 +71,8 @@ export const registerUser = createAsyncThunk(
     'auth/register',
     async (credentials: RegisterCredentials, { rejectWithValue }) => {
         try {
+            // Artificial delay to showcase loading screen
+            await new Promise((resolve) => setTimeout(resolve, 5000));
             const response = await api.post('/auth/register', credentials);
             const authData = response.data as AuthResponse;
 

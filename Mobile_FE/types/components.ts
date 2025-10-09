@@ -8,6 +8,7 @@ export interface ConversationInputProps {
     onTextChange: (text: string) => void;
     onSend: () => void;
     onAddPress: () => void;
+    isStreaming?: boolean;
 }
 
 export interface ConversationScreenProps {
@@ -67,6 +68,7 @@ export interface Conversation {
     metadata: any | null;
     createdAt: string;
     updatedAt: string;
+    shouldList?: boolean; // whether to show in list; temp chats set false until streaming starts
 }
 
 // Navigation Types
@@ -91,5 +93,7 @@ export type UIMessage = {
     parts: MessagePart[];
     experimental_attachments: any[]; // refine later if you know the structure
     status: "completed" | "streaming" | "error" | "cancelled" | "pending";
+    errorType?: "network" | "timeout" | "server" | "unknown";
+    errorMessage?: string;
     animateOnMountOnce?: boolean;
 }

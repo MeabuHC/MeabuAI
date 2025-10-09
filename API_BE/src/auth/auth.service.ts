@@ -72,7 +72,7 @@ export class AuthService {
       data: {
         email: registerDto.email,
         password: hashedPassword,
-        role: registerDto.role || Role.USER,
+        role: Role.USER, // force USER role on self-registration
       },
     });
 
