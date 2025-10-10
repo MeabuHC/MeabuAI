@@ -1,6 +1,6 @@
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { useNavigation } from "@react-navigation/native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import DotsIcon from "../assets/svg/dots.svg";
 import HamburgerMenuIcon from "../assets/svg/hamburger-menu.svg";
@@ -8,20 +8,37 @@ import NewChatIcon from "../assets/svg/new-chat.svg";
 import StarIcon from "../assets/svg/star.svg";
 import TemporaryChatActivateIcon from "../assets/svg/temporary-chat-activate.svg";
 import TemporaryChatIcon from "../assets/svg/temporary-chat.svg";
+import { useAppSelector } from "../store/hooks";
 import { ConversationHeaderProps } from "../types/components";
 import { DrawerParamList } from "../types/drawer";
+import ContextMenu from "./ContextMenu";
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   conversationId,
+  onNotify,
+  onNavigateNew,
 }) => {
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   const [isTemporaryChatActive, setIsTemporaryChatActive] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+
+  const conversations = useAppSelector((s) => s.conversations.conversations);
+  const title = useMemo(() => {
+    if (!conversationId) return "New Chat";
+    const byId = conversations.find((c) => c.id === conversationId);
+    if (byId?.title) return byId.title;
+    const byLocal = conversations.find((c) => c.localId === conversationId);
+    return byLocal?.title || "New Chat";
+  }, [conversationId, conversations]);
 
   if (!conversationId) {
     return (
       <View className="flex-row items-center justify-between py-[10px] px-6 bg-white relative">
         {/* Left */}
-        <TouchableOpacity onPress={() => navigation.openDrawer()}>
+        <TouchableOpacity
+          className="p-2 -m-2"
+          onPress={() => navigation.openDrawer()}
+        >
           <HamburgerMenuIcon width={24} height={24} color="#000000" />
         </TouchableOpacity>
 
@@ -44,6 +61,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
 
         {/* Right */}
         <TouchableOpacity
+          className="p-2 -m-2"
           activeOpacity={0.3}
           onPress={() => setIsTemporaryChatActive(!isTemporaryChatActive)}
         >
@@ -67,29 +85,48 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
     <View className="flex-row justify-between items-center py-[10px] px-6 bg-white border-b-[0.5px] border-gray-100">
       {/* Left - Hamburger */}
       <View className="flex-row items-center gap-6">
-        <TouchableOpacity onPress={() => navigation.openDrawer()}>
+        <TouchableOpacity
+          className="p-2 -m-2"
+          onPress={() => navigation.openDrawer()}
+        >
           <HamburgerMenuIcon width={24} height={24} color="#000000" />
         </TouchableOpacity>
 
         {/* Center - Chat Title */}
         <View className="flex-row items-center">
-          <Text className="text-xl font-semibold">MeabuAI</Text>
+          <Text className="text-xl font-semibold">
+            {title && conversationId ? title : "MeabuAI"}
+          </Text>
         </View>
       </View>
 
       <View className="flex-row items-center gap-6">
         {/* Right - New Chat Icon */}
         <TouchableOpacity
+          className="p-2 -m-2"
           onPress={() => navigation.navigate("Conversation", {})}
         >
           <NewChatIcon width={22} height={22} color="#000000" />
         </TouchableOpacity>
 
-        {/* Right - Dots Icon */}
-        <TouchableOpacity>
+        {/* Right - Dots Icon with Context Menu */}
+        <TouchableOpacity
+          className="p-2 -m-2"
+          onPress={() => setShowContextMenu(true)}
+        >
           <DotsIcon width={16} height={22} color="#000000" />
         </TouchableOpacity>
       </View>
+
+      {/* Context Menu */}
+      <ContextMenu
+        visible={showContextMenu}
+        onClose={() => setShowContextMenu(false)}
+        conversationTitle={title}
+        conversationId={conversationId}
+        onNotify={onNotify}
+        onNavigateNew={onNavigateNew}
+      />
     </View>
   );
 };

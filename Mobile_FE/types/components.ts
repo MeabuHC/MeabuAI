@@ -1,6 +1,8 @@
 // Conversation Components
 export interface ConversationHeaderProps {
     conversationId: string;
+    onNotify?: (message: string, durationMs?: number) => void;
+    onNavigateNew?: () => void;
 }
 
 export interface ConversationInputProps {
@@ -24,6 +26,7 @@ export interface ConversationScreenProps {
 // Message Components
 export interface UserMessageProps {
     message: string;
+    animateOnMount?: boolean;
 }
 
 export interface AIMessageProps {
@@ -40,6 +43,8 @@ export interface NotificationProps {
     visible: boolean;
     onClose: () => void;
     duration?: number;
+    hideCloseButton?: boolean;
+    useTrashIcon?: boolean;
 }
 
 export interface ScrollToBottomButtonProps {

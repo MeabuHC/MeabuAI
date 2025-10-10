@@ -9,7 +9,8 @@ interface UseStreamingReturn {
         threadId: string,
         onChunk: (chunk: string) => void,
         onComplete?: () => void,
-        onHeaders?: (headers: Headers) => void
+        onHeaders?: (headers: Headers) => void,
+        onError?: (error: Error) => void
     ) => Promise<void>;
     stopStreaming: () => void;
 }
@@ -33,7 +34,8 @@ export const useStreaming = (): UseStreamingReturn => {
             threadId: string,
             onChunk: (chunk: string) => void,
             onComplete?: () => void,
-            onHeaders?: (headers: Headers) => void
+            onHeaders?: (headers: Headers) => void,
+            onError?: (error: Error) => void
         ) => {
             // Stop any existing stream
             stopStreaming();
@@ -57,6 +59,7 @@ export const useStreaming = (): UseStreamingReturn => {
                     onError: (err: Error) => {
                         setError(err.message);
                         setIsStreaming(false);
+                        onError?.(err);
                     },
                     signal: abortControllerRef.current.signal,
                 });

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import React, { useRef } from "react";
+import { Dimensions } from "react-native";
 import SettingsSheet from "../components/SettingsSheet";
 import ConversationScreen from "../screens/ConversationScreen";
 import { DrawerParamList } from "../types/drawer";
@@ -31,6 +32,14 @@ const DrawerNavigator = () => {
         )}
         screenOptions={{
           headerShown: false,
+          // Enable full-screen horizontal swipe to open/close drawer
+          swipeEnabled: true,
+          // Use screen width so swipe works anywhere, not just the edge
+          swipeEdgeWidth: Dimensions.get("window").width,
+          // Trigger with a tiny swipe; still full-screen edge width
+          swipeMinDistance: 10,
+          // Faster feel while still responsive
+          gestureVelocityImpact: 0.6,
           drawerStyle: {
             backgroundColor: "#ffffff",
             width: 320,

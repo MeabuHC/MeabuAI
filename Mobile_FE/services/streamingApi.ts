@@ -18,30 +18,72 @@ export class StreamingApiService {
     async streamMessage(
         message: string,
         threadId: string,
-        options: StreamingOptions
+        options: StreamingOptions,
+        updatedAt?: string
     ): Promise<void> {
         try {
-            const token = await secureStorage.getToken();
+            // Helper: perform the streaming fetch with a given token
+            const doStreamFetch = async (accessToken: string) => {
+                return await fetch(`${this.baseURL}/ai/stream`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'text/event-stream',
+                    },
+                    body: JSON.stringify({
+                        threadId,
+                        message,
+                        updatedAt: updatedAt || new Date().toISOString(),
+                    }),
+                    // Enable streaming for React Native
+                    reactNative: { textStreaming: true },
+                    signal: options.signal,
+                } as any);
+            };
 
-            if (!token) {
-                throw new Error('No authentication token found');
+            // Helper: try to refresh tokens
+            const tryRefreshToken = async (): Promise<string | null> => {
+                const refreshToken = await secureStorage.getRefreshToken();
+                if (!refreshToken) return null;
+                try {
+                    const resp = await fetch(`${this.baseURL}/auth/refresh`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refresh_token: refreshToken }),
+                    });
+                    if (!resp.ok) return null;
+                    const data = await resp.json();
+                    const newAccess: string | undefined = data?.access_token;
+                    const newRefresh: string | undefined = data?.refresh_token;
+                    if (newAccess) {
+                        await secureStorage.setToken(newAccess);
+                        if (newRefresh) {
+                            await secureStorage.setRefreshToken(newRefresh);
+                        }
+                        return newAccess;
+                    }
+                    return null;
+                } catch {
+                    return null;
+                }
+            };
+
+            // 1) First attempt with current token
+            let token = await secureStorage.getToken();
+            if (!token) throw new Error('No authentication token found');
+
+            let response = await doStreamFetch(token);
+
+            // 2) If unauthorized, refresh once and retry
+            if (response.status === 401) {
+                const refreshed = await tryRefreshToken();
+                if (!refreshed) {
+                    throw new Error('Unauthorized (token expired) and refresh failed');
+                }
+                token = refreshed;
+                response = await doStreamFetch(token);
             }
-
-            const response = await fetch(`${this.baseURL}/ai/stream`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'text/event-stream',
-                },
-                body: JSON.stringify({
-                    threadId,
-                    message,
-                }),
-                // Enable streaming for React Native
-                reactNative: { textStreaming: true },
-                signal: options.signal,
-            } as any);
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);

@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Patch,
   Query,
   Req,
   Res,
@@ -63,12 +64,13 @@ export class AiController {
     @Res() res: Response,
     @Req() req: RequestWithUser,
   ) {
-    const { threadId, message } = body;
+    const { threadId, message, updatedAt } = body;
     const result = await this.aiService.stream(
       threadId,
       req.user.id,
       message,
       res,
+      updatedAt,
     );
     // Note: The threadId is also available in the X-Thread-Id response header
     return result;
@@ -96,12 +98,13 @@ export class AiController {
     @Body() body: PublicStreamRequestDto,
     @Res() res: Response,
   ) {
-    const { threadId, resourceId, message } = body;
+    const { threadId, resourceId, message, updatedAt } = body;
     const result = await this.aiService.stream(
       threadId,
       resourceId,
       message,
       res,
+      updatedAt,
     );
     // Note: The threadId is also available in the X-Thread-Id response header
     return result;
@@ -217,5 +220,29 @@ export class AiController {
       limit,
     );
     return res.status(HttpStatus.OK).json(messages);
+  }
+
+  @Patch('/threads/:threadId')
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(Role.USER)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update thread title',
+    description:
+      'Updates the title of a specific conversation thread by its ID.',
+  })
+  async updateThreadTitle(
+    @Param('threadId') threadId: string,
+    @Body('title') title: string,
+    @Res() res: Response,
+    @Req() req: RequestWithUser,
+  ) {
+    const resourceId = req.user.id;
+    const updated = await this.aiService.updateThreadTitle(
+      threadId,
+      resourceId,
+      title,
+    );
+    return res.status(HttpStatus.OK).json(updated);
   }
 }

@@ -1,4 +1,9 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsDateString,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class StreamRequestDto {
@@ -19,6 +24,16 @@ export class StreamRequestDto {
   @IsString()
   @IsNotEmpty()
   message: string;
+
+  @ApiProperty({
+    description:
+      'Timestamp for conversation update (optional - will use current time if not provided)',
+    example: '2024-01-15T10:30:00.000Z',
+    required: false,
+  })
+  @IsDateString()
+  @IsOptional()
+  updatedAt?: string;
 }
 
 export class PublicStreamRequestDto {
@@ -47,4 +62,14 @@ export class PublicStreamRequestDto {
   @IsString()
   @IsNotEmpty()
   message: string;
+
+  @ApiProperty({
+    description:
+      'Timestamp for conversation update (optional - will use current time if not provided)',
+    example: '2024-01-15T10:30:00.000Z',
+    required: false,
+  })
+  @IsDateString()
+  @IsOptional()
+  updatedAt?: string;
 }

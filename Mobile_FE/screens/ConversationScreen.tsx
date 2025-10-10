@@ -20,7 +20,6 @@ import BreathingIndicator from "../components/BreathingIndicator";
 import ConversationHeader from "../components/ConversationHeader";
 import ConversationInput from "../components/ConversationInput";
 import MessageErrorBanner from "../components/MessageErrorBanner";
-import Notification from "../components/Notification";
 import ScrollToBottomButton from "../components/ScrollToBottomButton";
 import SuggestionCarousel, {
   SUGGESTION_CARDS,
@@ -33,6 +32,7 @@ import {
   updateConversationDetails,
   updateConversationId,
 } from "../store/slices/conversationsSlice";
+import { showNotification as showGlobalNotification } from "../store/slices/notificationSlice";
 import {
   Conversation,
   ConversationScreenProps,
@@ -166,6 +166,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
           status: "completed",
           localId: uuidv4(),
           conversationId: localConversationId || "",
+          animateOnMountOnce: true,
         };
 
         const newResponse: UIMessage = {
@@ -250,7 +251,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
 
       const scrollNow = () => {
         console.log("Scrolling to end");
-        flatListRef.current?.scrollToEnd({ animated: false });
+        flatListRef.current?.scrollToIndex({ index: 0, animated: false });
       };
 
       if (Platform.OS === "ios") {
@@ -272,10 +273,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   }, [isAtBottom]);
 
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [notification, setNotification] = useState({
-    visible: false,
-    message: "",
-  });
+  // notifications are handled globally now
   const [touchStartPosition, setTouchStartPosition] = useState<{
     x: number;
     y: number;
@@ -326,6 +324,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
         localId: uuidv4(),
         status: "completed",
         conversationId: localConversationId || "",
+        animateOnMountOnce: true,
       };
 
       const newResponse: UIMessage = {
@@ -399,7 +398,9 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
 
       // Scroll to bottom after a short delay to ensure the new message is rendered
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+        if (messages && messages.length > 0) {
+          flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+        }
       }, 100);
     }
   };
@@ -410,8 +411,15 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   };
 
   const handleCopy = useCallback(() => {
-    setNotification({ visible: true, message: "Message copied" });
-  }, []);
+    dispatch(
+      showGlobalNotification({
+        message: "Message copied",
+        duration: NOTIFICATION_DURATION,
+        hideCloseButton: false,
+        useTrashIcon: false,
+      })
+    );
+  }, [dispatch]);
 
   const retryLast = useCallback(() => {
     const lastUser = (messages || [])
@@ -452,17 +460,14 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   const handleScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
 
-    // Determine if user is at or near the bottom
+    // For inverted FlatList, "bottom" is actually at y=0 (top of inverted list)
     const paddingToBottom = 20; // how close is "at bottom"
-    const atBottom =
-      contentOffset.y + layoutMeasurement.height >=
-      contentSize.height - paddingToBottom;
+    const atBottom = contentOffset.y <= paddingToBottom;
 
     setIsAtBottom(atBottom);
 
-    // Keep the scroll-to-bottom button logic
-    const isScrolledUp =
-      contentOffset.y < contentSize.height - layoutMeasurement.height - 450;
+    // Keep the scroll-to-bottom button logic - show when scrolled down from top
+    const isScrolledUp = contentOffset.y > 450;
     setShowScrollToBottom(isScrolledUp);
   };
 
@@ -491,7 +496,11 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   };
 
   const scrollToBottom = () => {
-    flatListRef.current?.scrollToEnd({ animated: true });
+    // For inverted FlatList, scroll to top (index 0) to show latest messages
+    // Check if there are messages before scrolling
+    if (messages && messages.length > 0) {
+      flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+    }
   };
 
   return (
@@ -505,32 +514,45 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
           <View className="relative z-30">
             <ConversationHeader
               conversationId={conversationId || localConversationId || ""}
+              onNotify={(msg: string, durationMs = NOTIFICATION_DURATION) =>
+                dispatch(
+                  showGlobalNotification({
+                    message: msg,
+                    duration: durationMs,
+                    hideCloseButton: /Deleting chat|Deleted chat/.test(msg),
+                    useTrashIcon: /Deleting chat|Deleted chat/.test(msg),
+                  })
+                )
+              }
+              onNavigateNew={() =>
+                navigation.navigate("Conversation", {} as any)
+              }
             />
           </View>
 
-          {/* Notification */}
-          <View className="relative z-10">
-            <Notification
-              message={notification.message}
-              visible={notification.visible}
-              onClose={hideNotification}
-              duration={NOTIFICATION_DURATION}
-            />
-          </View>
+          {/* Global notification rendered in App.tsx */}
 
           {/* Conversation Messages */}
           {(conversationId || localConversationId) && (
             <FlatList
               ref={flatListRef}
               className="pt-6"
-              data={messages || []}
+              data={messages ? [...messages].reverse() : []}
+              inverted={true}
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: "flex-end",
+              }}
               onScroll={handleScroll}
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
               scrollEventThrottle={16}
               renderItem={({ item }: { item: UIMessage }) =>
                 item.role === "user" ? (
-                  <UserMessage message={item.content} />
+                  <UserMessage
+                    message={item.content}
+                    animateOnMount={item.animateOnMountOnce === true}
+                  />
                 ) : item.status === "pending" ? (
                   <BreathingIndicator />
                 ) : (

@@ -64,7 +64,11 @@ const CustomDrawerContent: React.FC<Props> = (props) => {
 
       <DrawerContentScrollView
         {...props}
-        contentContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
+        contentContainerStyle={{
+          paddingTop: 0,
+          paddingBottom: 0,
+          flexGrow: 1, // Ensure minimum height for pull-to-refresh
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

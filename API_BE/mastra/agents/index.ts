@@ -46,8 +46,9 @@ export const memory = new Memory({
 });
 
 export const myAgent = new Agent({
-  name: 'My Personal Assistant',
-  instructions: 'You are a helpful assistant.',
+  name: 'MeabuAI',
+  instructions:
+    'You are MeabuAI, a personal AI assistant created by Hoang Cong Minh. You are designed to help users with a wide range of tasks using custom tools and advanced capabilities. You can assist with creative projects, answer questions, provide analysis, help with planning, and much more. Always be helpful, friendly, and professional in your responses.',
   model: groq('llama-3.1-8b-instant'),
   memory: memory,
   outputProcessors: [

@@ -11,6 +11,12 @@ export type SuggestionCard = {
 // Default suggestions used for a fresh conversation
 export const SUGGESTION_CARDS: SuggestionCard[] = [
   {
+    id: "ask_meabuai",
+    title: "What is MeabuAI?",
+    subtitle: "Tell me about this AI assistant",
+    prompt: "What is MeabuAI and what can it help me with?",
+  },
+  {
     id: "cartoon_pet",
     title: "Create a cartoon",
     subtitle: "illustration of my pet",

@@ -1,3 +1,4 @@
+import { ActionSheetProvider } from "@expo/react-native-action-sheet";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Font from "expo-font";
@@ -7,10 +8,12 @@ import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "react-redux";
+import Notification from "./components/Notification";
 import "./global.css";
 import { store } from "./store";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { restoreAuthState } from "./store/slices/authSlice";
+import { hideNotification as hideGlobalNotification } from "./store/slices/notificationSlice";
 
 import LoadingScreen from "./components/LoadingScreen";
 import DrawerNavigator from "./navigation/DrawerNavigator";
@@ -27,6 +30,7 @@ function MainNavigator() {
   const dispatch = useAppDispatch();
   const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
   const { theme } = useAppSelector((state) => state.theme);
+  const globalNotification = useAppSelector((s) => s.notification);
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   useEffect(() => {
@@ -72,6 +76,14 @@ function MainNavigator() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
+      <Notification
+        message={globalNotification.message}
+        visible={globalNotification.visible}
+        onClose={() => dispatch(hideGlobalNotification())}
+        duration={globalNotification.duration}
+        hideCloseButton={globalNotification.hideCloseButton}
+        useTrashIcon={globalNotification.useTrashIcon}
+      />
     </>
   );
 }
@@ -81,7 +93,9 @@ export default function App() {
     <Provider store={store}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <MainNavigator />
+          <ActionSheetProvider>
+            <MainNavigator />
+          </ActionSheetProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </Provider>

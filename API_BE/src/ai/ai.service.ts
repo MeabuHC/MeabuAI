@@ -13,6 +13,7 @@ export class AiService {
     resourceId: string,
     message: string,
     res: Response,
+    updatedAt?: string,
   ): Promise<{ threadId: string }> {
     // Generate a new threadId if not provided
     const finalThreadId = threadId || uuidv4();
@@ -40,7 +41,7 @@ export class AiService {
 
         // Force flush the data to client
         if ('flush' in res) {
-          (res as any).flush();
+          (res as Response & { flush: () => void }).flush();
         }
       }
 
@@ -54,6 +55,25 @@ export class AiService {
     }
 
     res.end();
+
+    // Update the thread's updatedAt timestamp
+    // TODO: Fix thread timestamp update - commented out for now
+    // try {
+    //   const currentThread = await memory.getThreadById({
+    //     threadId: finalThreadId,
+    //   });
+
+    //   await memory.updateThread({
+    //     id: finalThreadId,
+    //     title: currentThread?.title || '',
+    //     updatedAt: updatedAt || new Date().toISOString(),
+    //     metadata: {
+    //       ...currentThread?.metadata,
+    //     },
+    //   });
+    // } catch (error) {
+    //   console.error('Error updating thread timestamp:', error);
+    // }
 
     return { threadId: finalThreadId };
   }
@@ -78,6 +98,31 @@ export class AiService {
 
     await memory.deleteThread(threadId);
     return { message: 'Thread deleted successfully' };
+  }
+
+  async updateThreadTitle(threadId: string, resourceId: string, title: string) {
+    if (!title || !title.trim()) {
+      throw new BadRequestException('Title must not be empty');
+    }
+
+    const thread = await memory.getThreadById({ threadId });
+    if (!thread) {
+      throw new BadRequestException('Thread not found');
+    }
+    if (thread.resourceId !== resourceId) {
+      throw new BadRequestException(
+        'You are not authorized to update this thread',
+      );
+    }
+
+    const updated = await memory.updateThread({
+      id: threadId,
+      title: title.trim(),
+      metadata: {
+        ...thread.metadata,
+      },
+    });
+    return updated;
   }
 
   async getMessagesByThreadId(
