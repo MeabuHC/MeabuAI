@@ -10,7 +10,7 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 // Create axios instance
 const api: AxiosInstance = axios.create({
     baseURL: process.env.EXPO_PUBLIC_API_URL,
-    timeout: 10000,
+    timeout: 5000,
     headers: {
         'Content-Type': 'application/json',
     },

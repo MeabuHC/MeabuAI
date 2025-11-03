@@ -82,26 +82,29 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   }
 
   return (
-    <View className="flex-row justify-between items-center py-[10px] px-6 bg-white border-b-[0.5px] border-gray-100">
+    <View className="flex-row items-center py-[10px] px-6 bg-white border-b-[0.5px] border-gray-100">
       {/* Left - Hamburger */}
-      <View className="flex-row items-center gap-6">
-        <TouchableOpacity
-          className="p-2 -m-2"
-          onPress={() => navigation.openDrawer()}
-        >
-          <HamburgerMenuIcon width={24} height={24} color="#000000" />
-        </TouchableOpacity>
+      <TouchableOpacity
+        className="p-2 -m-2"
+        onPress={() => navigation.openDrawer()}
+      >
+        <HamburgerMenuIcon width={24} height={24} color="#000000" />
+      </TouchableOpacity>
 
-        {/* Center - Chat Title */}
-        <View className="flex-row items-center">
-          <Text className="text-xl font-semibold">
-            {title && conversationId ? title : "MeabuAI"}
-          </Text>
-        </View>
+      {/* Center - Chat Title */}
+      <View className="flex-1 mx-4">
+        <Text
+          className="text-xl font-semibold text-center"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {title && conversationId ? title : "MeabuAI"}
+        </Text>
       </View>
 
-      <View className="flex-row items-center gap-6">
-        {/* Right - New Chat Icon */}
+      {/* Right - Icons */}
+      <View className="flex-row items-center gap-2">
+        {/* New Chat Icon */}
         <TouchableOpacity
           className="p-2 -m-2"
           onPress={() => navigation.navigate("Conversation", {})}
@@ -109,7 +112,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
           <NewChatIcon width={22} height={22} color="#000000" />
         </TouchableOpacity>
 
-        {/* Right - Dots Icon with Context Menu */}
+        {/* Dots Icon with Context Menu */}
         <TouchableOpacity
           className="p-2 -m-2"
           onPress={() => setShowContextMenu(true)}

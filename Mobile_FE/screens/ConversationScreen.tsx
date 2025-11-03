@@ -47,7 +47,6 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   const { user } = useAppSelector((state) => state.auth);
   const isDark = theme === "dark";
   const [text, setText] = useState("");
-  const [hasActiveError, setHasActiveError] = useState(false);
 
   // Get conversationId (backend id) and localId from route params
   const conversationId = route.params?.conversationId;
@@ -139,7 +138,8 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
 
         return updatedMessages;
       });
-      setHasActiveError(true);
+      // Don't hide the input when there's an error - let users retry immediately
+      // setHasActiveError(true);
     },
     [setMessages]
   );
@@ -315,6 +315,23 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       const messageText = cleanupText(rawText.trim());
       const threadId = localConversationId || conversationId || "";
 
+      // Check if the last user message has an error and should be replaced
+      // Structure: [user, assistant with error, error banner] - so check 3rd and 2nd from end
+      const shouldReplaceLastUser =
+        messages &&
+        messages.length >= 2 &&
+        messages[messages.length - 2].role === "user" &&
+        messages[messages.length - 1]?.role === "assistant" &&
+        messages[messages.length - 1]?.status === "error";
+
+      console.log("Debug replacement:", {
+        messagesLength: messages?.length,
+        lastMessageRole: messages?.[messages.length - 1]?.role,
+        secondLastMessageRole: messages?.[messages.length - 2]?.role,
+        secondLastMessageStatus: messages?.[messages.length - 2]?.status,
+        shouldReplaceLastUser,
+      });
+
       const newMessage: UIMessage = {
         content: messageText,
         role: "user",
@@ -339,7 +356,22 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
         animateOnMountOnce: true,
       };
 
-      setMessages((prev) => [...(prev || []), newMessage, newResponse]);
+      if (shouldReplaceLastUser) {
+        console.log("Replacing messages - removing last 2 and adding new ones");
+        // Replace the last user message and the error assistant message
+        setMessages((prev) => {
+          if (!prev) return [newMessage, newResponse];
+          const updatedMessages = [...prev];
+          // Remove the last 2 messages (user and assistant with error)
+          updatedMessages.splice(-2, 2);
+          // Add the new user message and pending assistant message
+          return [...updatedMessages, newMessage, newResponse];
+        });
+      } else {
+        console.log("Normal flow - adding new messages");
+        // Normal flow - add new messages
+        setMessages((prev) => [...(prev || []), newMessage, newResponse]);
+      }
       setText("");
 
       // Send message to AI stream with real-time updates
@@ -406,7 +438,6 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   };
 
   const handleSend = () => {
-    setHasActiveError(false);
     sendImmediate(text);
   };
 
@@ -427,16 +458,94 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       .reverse()
       .find((m) => m.role === "user");
     if (lastUser?.content) {
-      setHasActiveError(false);
-      sendImmediate(lastUser.content);
+      // Clear the error status from the last assistant message
+      setMessages((prev) => {
+        if (!prev) return [];
+        const updatedMessages = [...prev];
+        const lastMessage = updatedMessages[updatedMessages.length - 1];
+        if (
+          lastMessage &&
+          lastMessage.role === "assistant" &&
+          lastMessage.status === "error"
+        ) {
+          lastMessage.status = "streaming";
+          lastMessage.content = ""; // Clear the content to start fresh
+          delete lastMessage.errorType;
+          delete lastMessage.errorMessage;
+        }
+        return updatedMessages;
+      });
+
+      // Resend the same message content without creating a new user message
+      const threadId = localConversationId || conversationId || "";
+      const messageText = lastUser.content;
+
+      // Send message to AI stream with real-time updates
+      streamMessage(
+        messageText,
+        threadId,
+        (chunk: string) => appendChunkToLastAssistant(chunk),
+        () => {
+          // On completion, mark the message as completed
+          markLastAssistantCompleted();
+          const effectiveThreadId =
+            newThreadIdRef.current ||
+            conversationId ||
+            localConversationId ||
+            "";
+          if (effectiveThreadId) {
+            api
+              .get(`/ai/threads/${effectiveThreadId}`)
+              .then((res) => {
+                const t = res.data;
+                dispatch(
+                  updateConversationDetails({
+                    localId: localConversationId!,
+                    id: t.id,
+                    title: t.title,
+                    createdAt: t.createdAt,
+                    updatedAt: t.updatedAt,
+                    resourceId: t.resourceId,
+                    metadata: t.metadata ?? null,
+                  })
+                );
+              })
+              .catch(() => {})
+              .finally(() => {
+                newThreadIdRef.current = null;
+              });
+          }
+        },
+        (headers: Headers) => {
+          const newThreadId =
+            headers.get("X-Thread-Id") || headers.get("x-thread-id");
+          if (newThreadId && !conversationId) {
+            newThreadIdRef.current = newThreadId;
+            dispatch(
+              updateConversationId({
+                localId: localConversationId!,
+                id: newThreadId,
+              })
+            );
+          }
+        }
+      );
     }
-  }, [messages]);
+  }, [
+    messages,
+    setMessages,
+    localConversationId,
+    conversationId,
+    markLastAssistantCompleted,
+    dispatch,
+  ]);
 
   useEffect(() => {
     if (streamError) {
       const msg = String(streamError);
       const isOffline = /network|offline|internet/i.test(msg);
-      const isTimeout = /timeout|time out|timed out|took too long/i.test(msg);
+      const isTimeout =
+        /timeout|time out|timed out|took too long|aborted/i.test(msg);
       const isServer = /5\d\d|internal server|server error/i.test(msg);
       const type = isOffline
         ? "network"
@@ -448,13 +557,6 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
       markLastAssistantError(type as any, msg);
     }
   }, [streamError, markLastAssistantError]);
-
-  const hideNotification = () => {
-    setNotification({
-      visible: false,
-      message: "",
-    });
-  };
 
   // This function runs when the user scrolls in a ScrollView or FlatList
   const handleScroll = (event: any) => {
@@ -563,6 +665,7 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
                       copyResetDuration={NOTIFICATION_DURATION}
                       isStreaming={item.status === "streaming"}
                       animateOnMount={item.animateOnMountOnce === true}
+                      hideToolbar={item.status === "error"}
                     />
                     {item.status === "error" && (
                       <MessageErrorBanner
@@ -615,18 +718,16 @@ const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
             </View>
           )}
 
-          {/* Bottom Input - Hide when there's an active error */}
-          {!hasActiveError && (
-            <ConversationInput
-              text={text}
-              onTextChange={setText}
-              onSend={handleSend}
-              onAddPress={() => {
-                console.log("add pressed");
-              }}
-              isStreaming={isStreaming}
-            />
-          )}
+          {/* Bottom Input */}
+          <ConversationInput
+            text={text}
+            onTextChange={setText}
+            onSend={handleSend}
+            onAddPress={() => {
+              console.log("add pressed");
+            }}
+            isStreaming={isStreaming}
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

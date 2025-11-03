@@ -35,6 +35,7 @@ export interface AIMessageProps {
     copyResetDuration?: number;
     isStreaming?: boolean;
     animateOnMount?: boolean;
+    hideToolbar?: boolean;
 }
 
 // Notification Components

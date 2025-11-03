@@ -15,6 +15,21 @@ export class StreamingApiService {
         this.baseURL = process.env.EXPO_PUBLIC_API_URL || '';
     }
 
+    // Helper method to combine multiple AbortSignals
+    private combineAbortSignals(signals: AbortSignal[]): AbortSignal {
+        const controller = new AbortController();
+
+        signals.forEach(signal => {
+            if (signal.aborted) {
+                controller.abort();
+            } else {
+                signal.addEventListener('abort', () => controller.abort());
+            }
+        });
+
+        return controller.signal;
+    }
+
     async streamMessage(
         message: string,
         threadId: string,
@@ -22,6 +37,17 @@ export class StreamingApiService {
         updatedAt?: string
     ): Promise<void> {
         try {
+            // Create timeout controller for 5-second timeout
+            const timeoutController = new AbortController();
+            const timeoutId = setTimeout(() => {
+                timeoutController.abort();
+            }, 5000);
+
+            // Combine user signal with timeout signal
+            const combinedSignal = options.signal ?
+                this.combineAbortSignals([options.signal, timeoutController.signal]) :
+                timeoutController.signal;
+
             // Helper: perform the streaming fetch with a given token
             const doStreamFetch = async (accessToken: string) => {
                 return await fetch(`${this.baseURL}/ai/stream`, {
@@ -38,7 +64,7 @@ export class StreamingApiService {
                     }),
                     // Enable streaming for React Native
                     reactNative: { textStreaming: true },
-                    signal: options.signal,
+                    signal: combinedSignal,
                 } as any);
             };
 
@@ -47,11 +73,21 @@ export class StreamingApiService {
                 const refreshToken = await secureStorage.getRefreshToken();
                 if (!refreshToken) return null;
                 try {
+                    // Create timeout for refresh token call
+                    const refreshTimeoutController = new AbortController();
+                    const refreshTimeoutId = setTimeout(() => {
+                        refreshTimeoutController.abort();
+                    }, 5000);
+
                     const resp = await fetch(`${this.baseURL}/auth/refresh`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ refresh_token: refreshToken }),
+                        signal: refreshTimeoutController.signal,
                     });
+
+                    clearTimeout(refreshTimeoutId);
+
                     if (!resp.ok) return null;
                     const data = await resp.json();
                     const newAccess: string | undefined = data?.access_token;
@@ -108,6 +144,7 @@ export class StreamingApiService {
                     const { done, value } = await reader.read();
 
                     if (done) {
+                        clearTimeout(timeoutId);
                         options.onComplete();
                         break;
                     }
@@ -124,6 +161,7 @@ export class StreamingApiService {
                                 if (line.startsWith('data: ')) {
                                     const data = line.slice(6).trim();
                                     if (data === '[DONE]') {
+                                        clearTimeout(timeoutId);
                                         options.onComplete();
                                         return;
                                     }
@@ -150,11 +188,17 @@ export class StreamingApiService {
                     }
                 }
             } finally {
+                clearTimeout(timeoutId);
                 reader.releaseLock();
             }
         } catch (error) {
             if (error instanceof Error) {
-                options.onError(error);
+                // Provide better error message for timeout/abort errors
+                if (error.name === 'AbortError' || error.message.includes('aborted')) {
+                    options.onError(new Error('Request timed out. Please check your connection and try again.'));
+                } else {
+                    options.onError(error);
+                }
             } else {
                 options.onError(new Error('Unknown streaming error'));
             }

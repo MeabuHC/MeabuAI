@@ -47,8 +47,6 @@ export const loginUser = createAsyncThunk(
     'auth/login',
     async (credentials: LoginCredentials, { rejectWithValue }) => {
         try {
-            // Artificial delay to showcase loading screen
-            await new Promise((resolve) => setTimeout(resolve, 5000));
             const response = await api.post('/auth/login', credentials);
             const authData = response.data as AuthResponse;
 
@@ -61,7 +59,22 @@ export const loginUser = createAsyncThunk(
 
             return authData;
         } catch (error: any) {
-            const message = error.response?.data?.message || error.message || 'Login failed';
+            let message = 'Login failed';
+
+            if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+                message = 'Connection timed out. Please check your internet connection and try again.';
+            } else if (error.response?.status === 401) {
+                message = 'Invalid email or password. Please try again.';
+            } else if (error.response?.status === 429) {
+                message = 'Too many login attempts. Please try again later.';
+            } else if (error.response?.status >= 500) {
+                message = 'Server error. Please try again later.';
+            } else if (error.response?.data?.message) {
+                message = error.response.data.message;
+            } else if (error.message) {
+                message = error.message;
+            }
+
             return rejectWithValue(message);
         }
     }
@@ -71,8 +84,6 @@ export const registerUser = createAsyncThunk(
     'auth/register',
     async (credentials: RegisterCredentials, { rejectWithValue }) => {
         try {
-            // Artificial delay to showcase loading screen
-            await new Promise((resolve) => setTimeout(resolve, 5000));
             const response = await api.post('/auth/register', credentials);
             const authData = response.data as AuthResponse;
 
@@ -85,7 +96,24 @@ export const registerUser = createAsyncThunk(
 
             return authData;
         } catch (error: any) {
-            const message = error.response?.data?.message || error.message || 'Registration failed';
+            let message = 'Registration failed';
+
+            if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+                message = 'Connection timed out. Please check your internet connection and try again.';
+            } else if (error.response?.status === 400) {
+                message = 'Invalid registration data. Please check your information and try again.';
+            } else if (error.response?.status === 409) {
+                message = 'An account with this email already exists. Please try logging in instead.';
+            } else if (error.response?.status === 429) {
+                message = 'Too many registration attempts. Please try again later.';
+            } else if (error.response?.status >= 500) {
+                message = 'Server error. Please try again later.';
+            } else if (error.response?.data?.message) {
+                message = error.response.data.message;
+            } else if (error.message) {
+                message = error.message;
+            }
+
             return rejectWithValue(message);
         }
     }
@@ -112,7 +140,20 @@ export const refreshToken = createAsyncThunk(
 
             return tokenData;
         } catch (error: any) {
-            const message = error.response?.data?.message || error.message || 'Token refresh failed';
+            let message = 'Token refresh failed';
+
+            if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+                message = 'Connection timed out. Please check your internet connection.';
+            } else if (error.response?.status === 401) {
+                message = 'Session expired. Please log in again.';
+            } else if (error.response?.status >= 500) {
+                message = 'Server error. Please try again later.';
+            } else if (error.response?.data?.message) {
+                message = error.response.data.message;
+            } else if (error.message) {
+                message = error.message;
+            }
+
             return rejectWithValue(message);
         }
     }

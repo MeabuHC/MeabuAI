@@ -13,6 +13,7 @@ const AIMessage: React.FC<AIMessageProps> = ({
   copyResetDuration = 3000,
   isStreaming = false,
   animateOnMount = false,
+  hideToolbar = false,
 }) => {
   // const { theme } = useAppSelector((state) => state.theme);
   const [isCopied, setIsCopied] = useState(false);
@@ -143,7 +144,7 @@ const AIMessage: React.FC<AIMessageProps> = ({
       <Markdown style={markdownStyles} rules={markdownRules}>
         {message}
       </Markdown>
-      {!isStreaming && (
+      {!isStreaming && !hideToolbar && (
         <AnimatedToolbar
           isVisible={true}
           animateOnMount={animateOnMount}
